@@ -3,346 +3,948 @@
  "textures": {
   "ASFALT": {
    "png": "ASFALT.png",
+   "family": "core_1",
+   "folder": "core_1",
    "source": "ASFALT.PCX",
+   "family_matched": true,
    "size": [
     256,
     256
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "BIGBL": {
    "png": "BIGBL.png",
+   "family": "core_1",
+   "folder": "Core_1",
    "source": "bigbl.dds",
+   "family_matched": true,
    "size": [
     512,
     512
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "BIGBL2": {
    "png": "BIGBL2.png",
+   "family": "core_1",
+   "folder": "Core_1",
    "source": "BIGBL2.dds",
+   "family_matched": true,
    "size": [
     256,
     256
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "BLOX": {
    "png": "BLOX.png",
+   "family": "core_1",
+   "folder": "core_1",
    "source": "BLOX.PCX",
+   "family_matched": true,
    "size": [
     64,
     64
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "BLOXWALL": {
    "png": "BLOXWALL.png",
+   "family": "core_1",
+   "folder": "Core_1",
    "source": "bloxwall.dds",
+   "family_matched": true,
    "size": [
     512,
     512
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Blubrik1": {
    "png": "Blubrik1.png",
+   "family": "core_1",
+   "folder": "Core_1",
    "source": "blubrik1.dds",
+   "family_matched": true,
    "size": [
     512,
     512
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Blustn": {
    "png": "Blustn.png",
+   "family": "core_1",
+   "folder": "Core_1",
    "source": "blustn.dds",
+   "family_matched": true,
    "size": [
     512,
     512
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Brickfl1": {
    "png": "Brickfl1.png",
+   "family": "core_1",
+   "folder": "Core_1",
    "source": "Brickfl1.dds",
+   "family_matched": true,
    "size": [
     512,
     512
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Brickfl3": {
    "png": "Brickfl3.png",
+   "family": "core_1",
+   "folder": "core_1",
    "source": "Brickfl3.PCX",
+   "family_matched": true,
    "size": [
     64,
     64
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Cave": {
    "png": "Cave.png",
+   "family": "core_1",
+   "folder": "Core_1",
    "source": "cave.dds",
+   "family_matched": true,
    "size": [
     1024,
     1024
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Cavrgh5": {
    "png": "Cavrgh5.png",
+   "family": "core_1",
+   "folder": "core_1",
    "source": "Cavrgh5.PCX",
+   "family_matched": true,
    "size": [
     64,
     64
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Cement": {
    "png": "Cement.png",
+   "family": "core_1",
+   "folder": "core_1",
    "source": "Cement.PCX",
+   "family_matched": true,
    "size": [
     64,
     64
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Clnbrik1": {
    "png": "Clnbrik1.png",
+   "family": "core_1",
+   "folder": "core_1",
    "source": "Clnbrik1.PCX",
+   "family_matched": true,
    "size": [
     64,
     64
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Cobbel": {
    "png": "Cobbel.png",
+   "family": "core_1",
+   "folder": "core_1",
    "source": "Cobbel.PCX",
+   "family_matched": true,
    "size": [
     256,
     256
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Cobl2": {
    "png": "Cobl2.png",
+   "family": "core_1",
+   "folder": "core_1",
    "source": "Cobl2.PCX",
+   "family_matched": true,
    "size": [
     256,
     256
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Cobl2lo": {
    "png": "Cobl2lo.png",
+   "family": "core_1",
+   "folder": "core_1",
    "source": "Cobl2lo.PCX",
+   "family_matched": true,
    "size": [
     32,
     32
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Cobls1": {
    "png": "Cobls1.png",
+   "family": "core_1",
+   "folder": "Core_1",
    "source": "cobls1.dds",
+   "family_matched": true,
    "size": [
     512,
     512
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Cracked": {
    "png": "Cracked.png",
+   "family": "core_1",
+   "folder": "core_1",
    "source": "Cracked.PCX",
+   "family_matched": true,
    "size": [
     64,
     64
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Cragston": {
    "png": "Cragston.png",
+   "family": "core_1",
+   "folder": "Core_1",
    "source": "cragston.dds",
+   "family_matched": true,
    "size": [
     512,
     512
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Filston0": {
    "png": "Filston0.png",
+   "family": "core_1",
+   "folder": "core_1",
    "source": "Filston0.PCX",
+   "family_matched": true,
    "size": [
     64,
     64
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Ftile3": {
    "png": "Ftile3.png",
+   "family": "core_1",
+   "folder": "core_1",
    "source": "Ftile3.PCX",
+   "family_matched": true,
    "size": [
     64,
     64
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Granit2": {
    "png": "Granit2.png",
+   "family": "core_1",
+   "folder": "Core_1",
    "source": "granit2.dds",
+   "family_matched": true,
    "size": [
     512,
     512
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Gstnwal3": {
    "png": "Gstnwal3.png",
+   "family": "core_1",
+   "folder": "core_1",
    "source": "Gstnwal3.PCX",
+   "family_matched": true,
    "size": [
     64,
     64
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Gstone1": {
    "png": "Gstone1.png",
+   "family": "core_1",
+   "folder": "core_1",
    "source": "Gstone1.PCX",
+   "family_matched": true,
    "size": [
     64,
     64
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Gstone2": {
    "png": "Gstone2.png",
+   "family": "core_1",
+   "folder": "core_1",
    "source": "Gstone2.PCX",
+   "family_matched": true,
    "size": [
     64,
     64
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Hewn3": {
    "png": "Hewn3.png",
+   "family": "core_1",
+   "folder": "core_1",
    "source": "Hewn3.PCX",
+   "family_matched": true,
    "size": [
     128,
     128
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Hewn4": {
    "png": "Hewn4.png",
+   "family": "core_1",
+   "folder": "core_1",
    "source": "Hewn4.PCX",
+   "family_matched": true,
    "size": [
     128,
     128
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Ironrock": {
    "png": "Ironrock.png",
+   "family": "core_1",
+   "folder": "core_1",
    "source": "Ironrock.PCX",
+   "family_matched": true,
    "size": [
     64,
     64
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Ledge": {
    "png": "Ledge.png",
+   "family": "core_1",
+   "folder": "core_1",
    "source": "Ledge.PCX",
+   "family_matched": true,
    "size": [
     64,
     64
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Ledge1": {
    "png": "Ledge1.png",
+   "family": "core_1",
+   "folder": "core_1",
    "source": "Ledge1.PCX",
+   "family_matched": true,
    "size": [
     64,
     64
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Obaswal7": {
    "png": "Obaswal7.png",
+   "family": "core_1",
+   "folder": "Core_1",
    "source": "obaswal7.dds",
+   "family_matched": true,
    "size": [
     512,
     256
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Odstone": {
    "png": "Odstone.png",
+   "family": "core_1",
+   "folder": "core_1",
    "source": "Odstone.PCX",
+   "family_matched": true,
    "size": [
     64,
     64
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Robblock": {
    "png": "Robblock.png",
+   "family": "core_1",
+   "folder": "Core_1",
    "source": "robblock.dds",
+   "family_matched": true,
    "size": [
     512,
     512
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Rufgry": {
    "png": "Rufgry.png",
+   "family": "core_1",
+   "folder": "Core_1",
    "source": "rufgry.dds",
+   "family_matched": true,
    "size": [
     512,
     512
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Sandy": {
    "png": "Sandy.png",
+   "family": "core_1",
+   "folder": "Core_1",
    "source": "sandy.dds",
+   "family_matched": true,
    "size": [
     512,
     512
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Stnwal3": {
    "png": "Stnwal3.png",
+   "family": "core_1",
+   "folder": "core_1",
    "source": "Stnwal3.PCX",
+   "family_matched": true,
    "size": [
     64,
     64
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Stone4": {
    "png": "Stone4.png",
+   "family": "core_1",
+   "folder": "core_1",
    "source": "Stone4.PCX",
+   "family_matched": true,
    "size": [
     64,
     64
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Stuc2": {
    "png": "Stuc2.png",
+   "family": "core_1",
+   "folder": "core_1",
    "source": "Stuc2.PCX",
+   "family_matched": true,
    "size": [
     64,
     64
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Tile": {
    "png": "Tile.png",
+   "family": "core_1",
+   "folder": "core_1",
    "source": "Tile.PCX",
+   "family_matched": true,
    "size": [
     64,
     64
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Trans": {
    "png": "Trans.png",
+   "family": "core_1",
+   "folder": "core_1",
    "source": "Trans.PCX",
+   "family_matched": true,
    "size": [
     64,
     64
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Tst2": {
    "png": "Tst2.png",
+   "family": "core_1",
+   "folder": "core_1",
    "source": "Tst2.PCX",
+   "family_matched": true,
    "size": [
     64,
     64
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Wallcat1": {
    "png": "Wallcat1.png",
+   "family": "core_1",
+   "folder": "Core_1",
    "source": "wallcat1.dds",
+   "family_matched": true,
    "size": [
     512,
     512
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   },
   "Wdplnk2g": {
    "png": "Wdplnk2g.png",
+   "family": "core_1",
+   "folder": "Core_1",
    "source": "Wdplnk2g.dds",
+   "family_matched": true,
    "size": [
     512,
     512
+   ],
+   "used_by": [
+    "00.mis",
+    "01.mis",
+    "02.mis",
+    "03.mis",
+    "04.mis",
+    "05.mis",
+    "06.mis",
+    "07.mis",
+    "08.mis"
    ]
   }
  }

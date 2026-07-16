@@ -26,11 +26,15 @@
 
 import unreal, json, math
 
-GEO_PATH    = r"C:\Nex\DarkSimProject\DarkSimToolkit\test_missions\07_geo.json"   # <-- SET (the *_geo.json)
+GEO_PATH    = r"C:\Nex\DarkSimProject\DarkSimToolkit\test_missions\00_geo.json"   # <-- SET (the *_geo.json)
 ASSET_PATH  = r"/Game/Mission/SM_Mission"
 BUILD_WATER = True        # also bake the water volume as a separate static mesh (SM_..._Water)
 TEST_LIMIT  = 0           # 0 = full mission; >0 = world solid + first N brushes (quick preview)
-UV_TILE_CM  = 256.0       # world-space texture tile size
+UV_TILE_CM  = 256.0       # world-space texture tile size (one texture repeat per this many cm)
+
+BUILD_TEXTURES = True     # assign real Dark textures (needs the *_geo.json with per-face "faces" data)
+TEX_DIR   = r"C:/Nex/DarkSimProject/DarkSimToolkit/textures"   # folder with the PNGs + textures_manifest.json
+MAT_ROOT  = r"/Game/Mission/Materials"                     # where imported textures + materials are created
 
 # ---------------------------------------------------------------- resolve GeometryScript by capability
 _GS=[n for n in dir(unreal) if n.startswith("GeometryScript_")]
@@ -62,7 +66,9 @@ GEDIT = lib_with("append_buffers_to_mesh", opt=True)   # fallback for non-box sh
 GB    = lib_with("apply_mesh_boolean")
 WEDGE_CUT_FLIP = False    # if a wedge fills the wrong diagonal half, flip this
 GASSET,ASSET_FN = method_like("static_mesh_asset","from_mesh")
+GCOPY,COPY_FN = method_like("copy","mesh","to","static")     # overwrite an existing SM in place (no dialog)
 _TCLIB,_TCFN = method_like("triangle","count")
+def CopyOpts():   t=_type("GeometryScriptCopyMeshToAssetOptions","CopyMeshToAsset","Options",opt=True); return t() if t else None
 def BoolOpts():   t=_type("GeometryScriptMeshBooleanOptions","BooleanOptions",opt=True); return t() if t else None
 def CutOpts():    t=_type("GeometryScriptMeshPlaneCutOptions","PlaneCut","Options",opt=True); return t() if t else None
 def PrimOpts():   t=_type("GeometryScriptPrimitiveOptions","PrimitiveOptions",opt=True); return t() if t else None
@@ -322,13 +328,232 @@ def mk_buffer(b):
     GEDIT.append_buffers_to_mesh(m, buf)
     return m
 
+# ---------------------------------------------------------------- textures (all behind BUILD_TEXTURES)
+# Every step is capability-detected: if the engine doesn't expose a needed GeometryScript function we
+# log it and skip texturing, so geometry always still builds. Material IDs are GLOBAL (a texture name
+# always maps to the same id) so they survive the boolean and map to the right material at the end.
+import os as _os, json as _json
+_MANIFEST={}; _MATS={}; _NEXTID=[1]      # id 0 reserved for the default/inherit material
+_DEFAULT_MAT=[None]
+_TEX_OK=[BUILD_TEXTURES]
+
+# find a lib+method by exact-name candidates first, then substring fallback
+def _find(cands, *substr):
+    for n in _GS:
+        o=getattr(unreal,n)
+        for c in cands:
+            if hasattr(o,c): return o,c
+    if substr:
+        for n in _GS:
+            o=getattr(unreal,n)
+            for m in sorted(dir(o)):
+                if not m.startswith("_") and all(x in m.lower() for x in substr): return o,m
+    return None,None
+
+# per-triangle normal + per-triangle material id (works on fresh primitives with compact triangle ids)
+GQ_NORM, _TRINORM = _find(["get_triangle_face_normal"], "triangle","face","normal")
+GMAT_TRI,_SETMATTRI = _find(["set_triangle_material_id","set_material_id_on_triangle"])
+# selection-by-normal + material-for-selection (preferred if present)
+GSEL_N, _SELN = _find(["select_mesh_elements_by_normal_angle","select_mesh_faces_by_normal_angle"],"select","normal")
+GMAT_SEL,_SETMATSEL = _find(["set_material_id_for_mesh_selection","set_material_i_ds_for_mesh_selection"],"material","selection")
+# world-scale UVs   (note: real name is set_mesh_u_vs_... with u_vs)
+GUV_BOX, _UVBOX = _find(["set_mesh_u_vs_from_box_projection","set_mesh_u_vs_from_planar_projection"],"u_vs","projection")
+GMAT_EN,_ENMATID = _find(["enable_material_i_ds","enable_material_ids"],"enable","material")
+
+def _dump(libname, *contains):
+    o=getattr(unreal,libname,None)
+    if not o: return
+    fns=[m for m in sorted(dir(o)) if not m.startswith("_") and (not contains or any(c in m.lower() for c in contains))]
+    unreal.log("  [%s] %s"%(libname, ", ".join(fns)))
+
+def _tex_report():
+    unreal.log("Texturing capability (resolved):")
+    unreal.log("  triangle normal  : %s.%s"%(GQ_NORM and GQ_NORM.__name__, _TRINORM))
+    unreal.log("  set matid (tri)  : %s.%s"%(GMAT_TRI and GMAT_TRI.__name__, _SETMATTRI))
+    unreal.log("  select by normal : %s.%s"%(GSEL_N and GSEL_N.__name__, _SELN))
+    unreal.log("  set matid (sel)  : %s.%s"%(GMAT_SEL and GMAT_SEL.__name__, _SETMATSEL))
+    unreal.log("  uv projection    : %s.%s"%(GUV_BOX and GUV_BOX.__name__, _UVBOX))
+    unreal.log("Available functions (for locking names if any above are None):")
+    _dump("GeometryScript_Materials","material","selection")
+    _dump("GeometryScript_MeshQueries","normal","triangle")
+    _dump("GeometryScript_MeshSelection","select","normal")
+    _dump("GeometryScript_UVs","projection","box","plane")
+    have_tri = _TRINORM and _SETMATTRI
+    have_sel = _SELN and _SETMATSEL
+    if not (have_tri or have_sel):
+        unreal.log_warning("  -> no usable material-tagging path; textures disabled (geometry still builds)")
+        _TEX_OK[0]=False
+
+_TEX_ROOT=[TEX_DIR]
+def _load_manifest():
+    here=_os.path.dirname(GEO_PATH)
+    cands=[TEX_DIR, _os.path.join(TEX_DIR,"textures"),
+           _os.path.join(here,"textures"), here,
+           _os.path.join(_os.path.dirname(TEX_DIR),"textures")]
+    for c in cands:
+        mp=_os.path.join(c,"textures_manifest.json")
+        if _os.path.isfile(mp):
+            _TEX_ROOT[0]=c
+            data=_json.load(open(mp)); _MANIFEST.update(data.get("textures",{}))
+            unreal.log("Loaded manifest: %d textures from %s"%(len(_MANIFEST),c)); return
+    unreal.log_warning("no textures_manifest.json found (looked in: %s); textures disabled"%" | ".join(cands))
+    _TEX_OK[0]=False
+
+def _existing(pkg, name):
+    p=pkg.rstrip("/")+"/"+name
+    try:
+        if unreal.EditorAssetLibrary.does_asset_exist(p): return unreal.load_asset(p)
+    except Exception: pass
+    return None
+
+def _import_texture(name):
+    entry=_MANIFEST.get(name)
+    if not entry: return None
+    stem=_os.path.splitext(entry["png"])[0]
+    ex=_existing(MAT_ROOT, stem)                       # reuse if already imported (re-run safe)
+    if ex is not None: return ex
+    png=_os.path.join(_TEX_ROOT[0], entry["png"])
+    if not _os.path.isfile(png): unreal.log_warning("  missing PNG %s"%png); return None
+    task=unreal.AssetImportTask()
+    task.set_editor_property("filename",png); task.set_editor_property("destination_path",MAT_ROOT)
+    task.set_editor_property("automated",True); task.set_editor_property("replace_existing",True)
+    task.set_editor_property("save",False)
+    unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([task])
+    outs=task.get_editor_property("imported_object_paths")
+    return unreal.load_asset(outs[0]) if outs else None
+
+def _make_material(name, tex):
+    ex=_existing(MAT_ROOT, "M_"+name)                  # reuse if already created (re-run safe)
+    if ex is not None: return ex
+    at=unreal.AssetToolsHelpers.get_asset_tools()
+    mat=at.create_asset("M_"+name, MAT_ROOT, unreal.Material, unreal.MaterialFactoryNew())
+    try:
+        ts=unreal.MaterialEditingLibrary.create_material_expression(mat, unreal.MaterialExpressionTextureSample)
+        ts.set_editor_property("texture",tex)
+        unreal.MaterialEditingLibrary.connect_material_property(ts,"RGB",unreal.MaterialProperty.MP_BASE_COLOR)
+        unreal.MaterialEditingLibrary.recompile_material(mat)
+    except Exception as e:
+        unreal.log_warning("  material wiring failed for %s (%s)"%(name,e))
+    return mat
+
+def _default_material():
+    if _DEFAULT_MAT[0] is None:
+        _DEFAULT_MAT[0]=_existing(MAT_ROOT,"M_Inherit_Default") or \
+            unreal.AssetToolsHelpers.get_asset_tools().create_asset(
+                "M_Inherit_Default", MAT_ROOT, unreal.Material, unreal.MaterialFactoryNew())
+    return _DEFAULT_MAT[0]
+
+def material_id(tex_name):
+    if not _TEX_OK[0] or tex_name is None: return 0
+    if tex_name not in _MATS:
+        tex=_import_texture(tex_name)
+        mat=_make_material(tex_name,tex) if tex else _default_material()
+        _MATS[tex_name]=(_NEXTID[0],mat); _NEXTID[0]+=1
+    return _MATS[tex_name][0]
+
+def _tri_normal(mesh,tid):
+    for call in ((mesh,tid),(mesh,tid,True)):
+        try:
+            r=getattr(GQ_NORM,_TRINORM)(*call)
+            return r[0] if isinstance(r,(tuple,list)) else r
+        except Exception: continue
+    return None
+
+def _set_matid_tri(mesh,tid,mid):
+    try: getattr(GMAT_TRI,_SETMATTRI)(mesh,tid,mid); return True
+    except Exception: return False
+
+def _tag_by_selection(mesh, faces, dom):
+    # one selection per face, by normal, then set material id on that selection
+    for f in faces:
+        tex=f.get("tex") or dom
+        mid=material_id(tex); n=f["n"]; nv=unreal.Vector(n[0],n[1],n[2])
+        sel=None
+        for call in ((mesh,nv,15.0),(mesh,nv,15.0,True),(mesh,unreal.GeometryScriptMeshSelection(),nv,15.0)):
+            try:
+                r=getattr(GSEL_N,_SELN)(*call); sel=r[0] if isinstance(r,(tuple,list)) else r; break
+            except Exception: continue
+        if sel is None: return False
+        ok=False
+        for call in ((mesh,sel,mid),(mesh,None,sel,mid)):
+            try: getattr(GMAT_SEL,_SETMATSEL)(*call); ok=True; break
+            except Exception: continue
+        if not ok: return False
+    return True
+
+def _tag_by_triangle(mesh, faces, dom):
+    tc=tri_count(mesh)
+    if not tc or tc<0: return False
+    any_ok=False
+    for tid in range(tc):
+        n=_tri_normal(mesh,tid)
+        if n is None: continue
+        best=None; bd=-2.0
+        for f in faces:
+            fn=f["n"]; d=n.x*fn[0]+n.y*fn[1]+n.z*fn[2]
+            if d>bd: bd=d; best=f
+        tex=(best.get("tex") if best else None) or dom
+        if _set_matid_tri(mesh,tid,material_id(tex)): any_ok=True
+    return any_ok
+
+def _enable_matids(mesh):
+    if _ENMATID:
+        try: getattr(GMAT_EN,_ENMATID)(mesh)
+        except Exception: pass
+
+_TAG_MODE=[None]   # 'tri' | 'sel' | 'off' - decided on first brush, then reused
+def tag_materials(mesh, b):
+    if not _TEX_OK[0]: return
+    faces=b.get("faces") or []
+    if not faces: return
+    _enable_matids(mesh)
+    texs=[f.get("tex") for f in faces if f.get("tex")]
+    dom=max(set(texs),key=texs.count) if texs else None      # inherit fallback: brush's dominant texture
+    if _TAG_MODE[0]=="off": return
+    if _TAG_MODE[0]=="tri": _tag_by_triangle(mesh,faces,dom); return
+    if _TAG_MODE[0]=="sel": _tag_by_selection(mesh,faces,dom); return
+    # first brush: prefer the per-triangle path (confirmed signatures), then selection
+    if _TRINORM and _SETMATTRI and _tag_by_triangle(mesh,faces,dom): _TAG_MODE[0]="tri"; unreal.log("  material tagging: per-triangle"); return
+    if _SELN and _SETMATSEL and _tag_by_selection(mesh,faces,dom): _TAG_MODE[0]="sel"; unreal.log("  material tagging: selection-by-normal"); return
+    _TAG_MODE[0]="off"; unreal.log_warning("  material tagging failed both ways; textures disabled")
+
+def apply_world_uvs(mesh):
+    """Fixed world-scale planar/box UVs: one texture repeat per UV_TILE_CM."""
+    if not _UVBOX: return
+    t=unreal.Transform()
+    t.set_editor_property("scale3d", unreal.Vector(UV_TILE_CM,UV_TILE_CM,UV_TILE_CM))
+    for a in ((mesh,0,t),(mesh,0,t,1.0),(mesh,t),(mesh,0,t,None),(mesh,0,t,1.0,True)):
+        try: getattr(GUV_BOX,_UVBOX)(*a); return
+        except Exception: continue
+
+def assign_materials(sm):
+    if not _TEX_OK[0]: return
+    try: sm.set_material(0, _default_material())
+    except Exception: pass
+    for name,(mid,mat) in _MATS.items():
+        try: sm.set_material(mid, mat)
+        except Exception as e: unreal.log_warning("  slot %d (%s) assign failed: %s"%(mid,name,e))
+    unreal.log("Assigned %d materials (+default)"%len(_MATS))
+
 def mk(b):
-    if b.get("shape")=="box":   return mk_box(b)
-    if b.get("shape")=="wedge": return mk_wedge(b)
-    if b.get("shape")=="cylinder": return mk_cylinder(b)
-    return mk_buffer(b)
+    if b.get("shape")=="box":      m=mk_box(b)
+    elif b.get("shape")=="wedge":  m=mk_wedge(b)
+    elif b.get("shape")=="cylinder": m=mk_cylinder(b)
+    else:                          m=mk_buffer(b)
+    if _TEX_OK[0]: tag_materials(m,b)
+    return m
 
 def bake(mesh, path):
+    # if the asset already exists, overwrite its mesh IN PLACE (no "Overwrite Existing Object" dialog)
+    try:
+        if GCOPY and unreal.EditorAssetLibrary.does_asset_exist(path):
+            sm=unreal.load_asset(path); co=CopyOpts()
+            for args in ([mesh,sm,co],[mesh,sm]):
+                if co is None and len(args)>2: continue
+                try:
+                    getattr(GCOPY,COPY_FN)(*args); return sm
+                except Exception: continue
+    except Exception: pass
     fn=getattr(GASSET,ASSET_FN); pkg,name=path.rsplit("/",1); o=AssetOpts()
     for args in ([mesh,pkg,name,o],[mesh,pkg,name],[mesh,path,o],[mesh,path]):
         if o is None and len(args)>3: continue
@@ -338,14 +563,28 @@ def bake(mesh, path):
     return None
 def spawn(sm, label):
     eas=unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
+    try:                                                # reuse an actor with this label (no duplicates)
+        for a in eas.get_all_level_actors():
+            if isinstance(a,unreal.StaticMeshActor) and a.get_actor_label()==label:
+                a.static_mesh_component.set_static_mesh(sm); return a
+    except Exception: pass
     a=eas.spawn_actor_from_class(unreal.StaticMeshActor,unreal.Vector(0,0,0))
     a.static_mesh_component.set_static_mesh(sm); a.set_actor_label(label); return a
 
 # ---------------------------------------------------------------- media state machine (direct, solid-first)
 def run():
+    if BUILD_TEXTURES:
+        _tex_report()
+        if _TEX_OK[0]: _load_manifest()
     with open(GEO_PATH) as fh: data=json.load(fh)
     B=sorted(data["brushes"], key=lambda x:x["time"])
     world=B[0]; body=B[1:]
+    if BUILD_TEXTURES:
+        nf=sum(1 for b in B if b.get("faces"))
+        unreal.log("Face-texture data: %d/%d brushes carry 'faces'"%(nf,len(B)))
+        if nf==0:
+            unreal.log_warning("  -> this geo has NO per-face texture data. Regenerate it with the "
+                               "current mis_to_geo.py (py mis_to_geo.py 06.mis 06_geo.json).")
     if TEST_LIMIT: body=body[:TEST_LIMIT]
     unreal.log("Media CSG (primitives): %d brushes, water=%s"%(len(body),BUILD_WATER))
     O=BoolOpts()
@@ -374,8 +613,10 @@ def run():
     if first_err[0]: unreal.log_error("First boolean error: %s"%first_err[0])
 
     ensure_uv_normals(result)
+    if _TEX_OK[0]: apply_world_uvs(result)
     sm=bake(result, ASSET_PATH)
     if sm is None: unreal.log_error("bake failed"); return
+    assign_materials(sm)
     spawn(sm, ASSET_PATH.rsplit("/",1)[-1])
     unreal.log("Level -> %s"%ASSET_PATH)
 

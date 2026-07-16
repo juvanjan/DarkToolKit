@@ -11,11 +11,14 @@
 # USAGE (run on the machine that has your Thief 2 install):
 #   py extract_textures.py --game "C:/Games/Thief2" --mis "C:/.../missions" --out "C:/.../textures"
 #     --game  Thief 2 folder (searched for *.crf and any loose fam/ folders), OR a direct path to fam.crf
-#     --mis   a .mis file, or a folder of them - only textures these reference are extracted
+#     --mis   a .mis file, OR A FOLDER OF THEM (recursed) - the union of every texture they reference
+#             is extracted once into one shared --out folder; the manifest records which missions use each.
 #     --out   where the PNGs + textures_manifest.json are written  (default: ./textures)
 #     --all   ignore --mis and extract EVERY texture found in the archives
 #
-# Example (single mission, default out folder):
+# Whole folder of missions (typical):
+#   py extract_textures.py --game "C:/Games/Thief2" --mis "C:/.../test_missions" --out textures
+# Single mission:
 #   py extract_textures.py --game "C:/Games/Thief2" --mis "C:/.../057a33b2-06.mis"
 
 import os, sys, zipfile, struct, json, argparse
@@ -23,8 +26,9 @@ import os, sys, zipfile, struct, json, argparse
 TEX_EXTS = (".pcx", ".dds", ".png", ".gif", ".tga", ".bmp")
 
 # ---------------------------------------------------------------- read texture names from a .MIS (TXLIST)
-def read_txlist_names(path):
-    """Return the list of texture names referenced by a mission, from its TXLIST chunk."""
+def read_txlist(path):
+    """Return [(name, family)] referenced by a mission. family = the folder DromEd resolves it from.
+    Record byte 1 is the family index, 1-based into the family-name list (0 = no family / null)."""
     try:
         f = open(path, "rb").read()
         toc = struct.unpack_from("<I", f, 0)[0]
@@ -36,29 +40,45 @@ def read_txlist_names(path):
         if "TXLIST" not in chunks: return []
         o, l = chunks["TXLIST"]; d = f[o+24:o+24+l]
         _, ntex, nfam = struct.unpack_from("<III", d, 0)
-        p = 12 + nfam*16; names = []
+        fams = [d[12+i*16:12+i*16+16].split(b"\x00")[0].decode("latin1") for i in range(nfam)]
+        p = 12 + nfam*16; out = []
         for _ in range(ntex):
-            nm = d[p+4:p+20].split(b"\x00")[0].decode("latin1"); p += 20
-            if nm and nm.lower() != "null": names.append(nm)
-        return names
+            fi = d[p+1]; nm = d[p+4:p+20].split(b"\x00")[0].decode("latin1"); p += 20
+            if nm and nm.lower() != "null":
+                fam = fams[fi-1] if 1 <= fi <= nfam else ""     # 1-based family index
+                out.append((nm, fam))
+        return out
     except Exception as e:
         print("  ! could not read TXLIST from %s (%s)" % (os.path.basename(path), e))
         return []
 
+def read_txlist_names(path):
+    return [nm for nm, _ in read_txlist(path)]
+
 def gather_needed(mis_arg):
     files = []
     if os.path.isdir(mis_arg):
-        for root, _, fs in os.walk(mis_arg):
+        for root, _, fs in os.walk(mis_arg):                 # recurses into subfolders
             for fn in fs:
                 if fn.lower().endswith(".mis"): files.append(os.path.join(root, fn))
+        files.sort()
     elif os.path.isfile(mis_arg):
         files = [mis_arg]
-    needed = {}   # lower name -> display name
+    else:
+        print("! --mis path not found:", mis_arg); return {}, {}
+    needed = {}      # lower name -> display name
+    usage  = {}      # lower name -> [mission files that use it]
+    family = {}      # lower name -> family folder (from TXLIST)
     for mf in files:
-        for nm in read_txlist_names(mf):
-            needed.setdefault(nm.lower(), nm)
-    print("Missions scanned: %d   textures referenced: %d" % (len(files), len(needed)))
-    return needed
+        entries = read_txlist(mf)
+        for nm, fam in entries:
+            k = nm.lower()
+            needed.setdefault(k, nm)
+            usage.setdefault(k, []).append(os.path.basename(mf))
+            if fam and k not in family: family[k] = fam
+        print("  %-38s %3d textures" % (os.path.basename(mf), len(entries)))
+    print("Missions scanned: %d   unique textures referenced: %d" % (len(files), len(needed)))
+    return needed, usage, family
 
 # ---------------------------------------------------------------- index available texture files
 def index_sources(game):
@@ -80,12 +100,12 @@ def index_sources(game):
         print("! --game path not found:", game); return {}
     # fam archives first
     crfs.sort(key=lambda p: (0 if "fam" in os.path.basename(p).lower() else 1, p))
-    index = {}
+    index = {}   # stem -> [ (kind, container, member, folder) ]  folder = family folder name
     def add(key, entry):
-        index.setdefault(key, entry)          # first (highest-priority) wins
+        index.setdefault(key, []).append(entry)
     for lp in loose:
         stem = os.path.splitext(os.path.basename(lp))[0].lower()
-        add(stem, ("loose", lp, None))
+        add(stem, ("loose", lp, None, os.path.basename(os.path.dirname(lp))))
     for cp in crfs:
         try:
             zf = zipfile.ZipFile(cp)
@@ -93,12 +113,22 @@ def index_sources(game):
             print("  ! cannot open archive %s (%s)" % (cp, e)); continue
         for member in zf.namelist():
             if member.endswith("/"): continue
-            b = member.replace("\\", "/").split("/")[-1]
+            parts = member.replace("\\", "/").split("/")
+            b = parts[-1]
             if not b.lower().endswith(TEX_EXTS): continue
             stem = os.path.splitext(b)[0].lower()
-            add(stem, ("crf", cp, member))
+            folder = parts[-2] if len(parts) >= 2 else ""
+            add(stem, ("crf", cp, member, folder))
     print("Archives: %d   loose files: %d   unique texture stems: %d" % (len(crfs), len(loose), len(index)))
     return index
+
+def pick_candidate(cands, fam):
+    """Choose the file matching the texture's family folder (as DromEd does); else first available."""
+    if not cands: return None, False
+    if fam:
+        for c in cands:
+            if c[3] and c[3].lower() == fam.lower(): return c, True
+    return cands[0], (not fam)   # exact=False means we fell back (possible mismatch)
 
 # ---------------------------------------------------------------- convert one texture to PNG
 def load_image(kind, container, member):
@@ -112,7 +142,8 @@ def load_image(kind, container, member):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--game", required=True, help="Thief 2 folder, or a direct path to fam.crf")
+    ap.add_argument("--game", default=r"C:/Nex/DarkSimProject/Thief 2",
+                    help="Thief 2 folder, or a direct path to fam.crf")
     ap.add_argument("--mis",  default=None,  help=".mis file or folder of them (which textures to pull)")
     ap.add_argument("--out",  default="textures")
     ap.add_argument("--all",  action="store_true", help="extract every texture found, ignore --mis")
@@ -126,28 +157,36 @@ def main():
     index = index_sources(a.game)
     if not index: sys.exit(1)
 
+    usage = {}; family = {}
     if a.all or not a.mis:
         needed = {k: k for k in index.keys()}
         if not a.mis: print("(no --mis given; extracting ALL textures found)")
     else:
-        needed = gather_needed(a.mis)
+        needed, usage, family = gather_needed(a.mis)
         if not needed: print("No textures referenced (check --mis path)."); sys.exit(1)
 
     os.makedirs(a.out, exist_ok=True)
-    manifest = {}; missing = []; ok = 0
+    manifest = {}; missing = []; ok = 0; fallbacks = []
     for key, disp in sorted(needed.items()):
-        entry = index.get(key)
-        if not entry:
+        cands = index.get(key)
+        if not cands:
             missing.append(disp); continue
-        kind, container, member = entry
+        fam = family.get(key, "")
+        entry, exact = pick_candidate(cands, fam)
+        kind, container, member, folder = entry
+        if fam and not exact:
+            others = sorted(set(c[3] for c in cands if c[3]))
+            fallbacks.append("%s (wants family '%s', found in %s)" % (disp, fam, others or "unknown folder"))
         try:
             img = load_image(kind, container, member)
             img = img.convert("RGBA") if ("transparency" in img.info or img.mode in ("RGBA","LA","P")) else img.convert("RGB")
             outname = disp + ".png"
             img.save(os.path.join(a.out, outname))
-            manifest[disp] = {"png": outname,
+            manifest[disp] = {"png": outname, "family": fam, "folder": folder,
                               "source": os.path.basename(container) + (("::"+member) if member else ""),
-                              "size": list(img.size)}
+                              "family_matched": bool(fam and exact),
+                              "size": list(img.size),
+                              "used_by": sorted(set(usage.get(key, [])))}
             ok += 1
         except Exception as e:
             print("  ! failed to convert %s (%s)" % (disp, e)); missing.append(disp)
@@ -157,6 +196,9 @@ def main():
 
     print("\nConverted %d textures -> %s" % (ok, a.out))
     print("Manifest: %s" % os.path.join(a.out, "textures_manifest.json"))
+    if fallbacks:
+        print("FAMILY FALLBACK (%d) - the mission's family folder wasn't found, used another (may look wrong):" % len(fallbacks))
+        for fb in fallbacks: print("  " + fb)
     if missing:
         print("MISSING (%d) - not found in the archives: %s" % (len(missing), ", ".join(missing)))
         print("  These may live in a family folder outside fam.crf, or be custom fan-mission textures.")

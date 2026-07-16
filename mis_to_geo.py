@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # mis_to_geo.py  ---  Thief 2 .MIS -> precomputed world-space geometry JSON for Unreal.
 #
-#   single file : python3 mis_to_geo.py  mission.mis  mission_geo.json
-#   whole folder: python3 mis_to_geo.py  --folder  INPUT_DIR  [OUTPUT_DIR]
+#   single file : py mis_to_geo.py  mission.mis  mission_geo.json
+#   whole folder: py mis_to_geo.py  --folder  INPUT_DIR  [OUTPUT_DIR]
 #
 # Bakes every brush's mesh with Dark's OWN rotation convention (verified against DromEd):
 #   rotation matrix = Rz(Heading) @ Ry(Pitch) @ Rx(Bank),  angles = (az,ay,ax) from the record.
@@ -91,12 +91,73 @@ def bake(b):
     T=orient(Wue,T)                                     # outward winding (Y-flip inverts; repair)
     return [[round(x,3) for x in p] for p in Wue], [list(t) for t in T]
 
+def read_txlist(chunks, f):
+    """TXLIST -> list of texture names (index -> name). index 0 is usually 'null'."""
+    if "TXLIST" not in chunks: return []
+    o,l=chunks["TXLIST"]; d=f[o+24:o+24+l]
+    _,ntex,nfam=struct.unpack_from("<III",d,0)
+    p=12+nfam*16; names=[]
+    for _ in range(ntex):
+        names.append(d[p+4:p+20].split(b"\x00")[0].decode("latin1")); p+=20
+    return names
+
+# -- per-face texture assignment ------------------------------------------------------------------
+# Dark stores one texture id per brush face, in a fixed per-shape record order. We map each record
+# slot to a LOCAL face normal, then bake that normal into UE space (F @ R @ n) so the Unreal side can
+# assign the material to whichever built face matches - independent of vertex/triangle ordering.
+#   *** FACE-ORDER CONVENTION (verify visually on mission 06: walls vs floor vs ceiling) ***
+#   box slots:  0:+X 1:-X 2:+Y 3:-Y 4:+Z 5:-Z
+#   cylinder:   sides use slot 0 (side template); +Z cap = slot 4, -Z cap = slot 5
+#   wedge:      0:+X cap 1:-X cap 2:-Y leg 3:-Z leg 4:hypotenuse
+F_REFLECT=np.array([1.0,-1.0,1.0])
+
+def _slot_for(shape, nl):
+    ax=int(np.argmax(np.abs(nl))); sgn=1 if nl[ax]>0 else -1
+    if shape=="cylinder":
+        if ax==2: return 4 if sgn>0 else 5     # cap
+        return 0                                # any side -> side template slot
+    if shape=="wedge":
+        if ax==0: return 0 if sgn>0 else 1      # +X / -X caps
+        if nl[1]<-0.3 and abs(nl[2])<0.3: return 2   # -Y leg
+        if nl[2]<-0.3 and abs(nl[1])<0.3: return 3   # -Z leg
+        return 4                                # hypotenuse (mixed +Y/+Z normal)
+    # box
+    return {(0,1):0,(0,-1):1,(1,1):2,(1,-1):3,(2,1):4,(2,-1):5}[(ax,sgn)]
+
+def faces_for(b, names):
+    """Return [{n:[ux,uy,uz], tex:name|None}] - one per distinct face, in UE space."""
+    h=b["half"]
+    if   b["shape"]=="cylinder": V,T=cyl_local(h,b["sides"])
+    elif b["shape"]=="wedge":    V,T=wedge_local(h)
+    else:                        V,T=box_local(h)
+    R=Mdark(b["H"],b["P"],b["B"]); ftex=b.get("ftex",[])
+    def resolve(slot):
+        if slot<0 or slot>=len(ftex): return None
+        idx=ftex[slot]
+        if idx<0 or idx>=len(names): return None            # -1 = inherit (carved surface)
+        nm=names[idx]
+        return None if nm.lower()=="null" else nm
+    groups={}
+    for t in T:
+        p,q,r=(np.array(V[t[i]],dtype=float) for i in range(3))
+        n=np.cross(q-p,r-p); L=np.linalg.norm(n)
+        if L<1e-9: continue
+        nl=n/L; key=tuple(np.round(nl,3))
+        groups.setdefault(key, nl)
+    faces=[]
+    for nl in groups.values():
+        tex=resolve(_slot_for(b["shape"], nl))
+        nue=F_REFLECT*(R@nl); nue=nue/ (np.linalg.norm(nue) or 1.0)
+        faces.append(dict(n=[round(float(x),4) for x in nue], tex=tex))
+    return faces
+
 def extract(path):
     f=open(path,"rb").read()
     toc=struct.unpack_from("<I",f,0)[0]; cnt=struct.unpack_from("<I",f,toc)[0]
     p=toc+4; chunks={}
     for _ in range(cnt):
         nm=f[p:p+12].split(b"\x00")[0].decode("latin1"); off,ln=struct.unpack_from("<II",f,p+12); chunks[nm]=(off,ln); p+=20
+    names=read_txlist(chunks, f)
     o,l=chunks["BRLIST"]; d=f[o+24:o+24+l]; N=len(d)
     def hdrok(p):
         if p+76>N: return False
@@ -127,18 +188,20 @@ def extract(path):
         bid,tm=struct.unpack_from("<hh",d,p)
         x,y,z,sx,sy,sz=struct.unpack_from("<6f",d,p+12)
         ax,ay,az=struct.unpack_from("<3H",d,p+36)
+        ftex=[struct.unpack_from("<h",d,p+76+k*10)[0] for k in range(nf)]   # texture id per face (-1=inherit)
         shape,sides=classify(nf)
         out.append(dict(id=bid,time=tm,op=int(op),shape=shape,sides=sides,
-                        pos=(x,y,z),half=(sx,sy,sz),H=dg(az),P=dg(ay),B=dg(ax)))
+                        pos=(x,y,z),half=(sx,sy,sz),H=dg(az),P=dg(ay),B=dg(ax),ftex=ftex))
     out.sort(key=lambda b:b["time"])
-    return out
+    return out, names
 
 def convert(inp, outp):
-    B=extract(inp)
+    B,names=extract(inp)
     brushes=[]; allv=[]
     for b in B:
         V,T=bake(b)
-        brushes.append(dict(id=b["id"],time=b["time"],op=b["op"],shape=b["shape"],verts=V,tris=T))
+        brushes.append(dict(id=b["id"],time=b["time"],op=b["op"],shape=b["shape"],
+                            verts=V,tris=T,faces=faces_for(b,names)))
         allv+=V
     if not allv: raise ValueError("no terrain brushes found")
     # world solid box (encloses everything) as brush 0
@@ -158,7 +221,7 @@ def convert(inp, outp):
                 faces.append((idx[a2],idx[b2],idx[c2])); faces.append((idx[a2],idx[c2],idx[d2]))
         return faces
     Tw=orient(Vw,boxtris())
-    world=dict(id=0,time=0,op=0,shape="box",verts=[[round(x,3) for x in v] for v in Vw],tris=[list(t) for t in Tw])
+    world=dict(id=0,time=0,op=0,shape="box",verts=[[round(x,3) for x in v] for v in Vw],tris=[list(t) for t in Tw],faces=[])
     brushes=[world]+brushes
     json.dump(dict(units="cm",note="world-space verts baked with Dark rotation Rz(H)Ry(P)Rx(B), Y-negated to UE",
                    brushes=brushes),open(outp,"w"))
@@ -169,8 +232,8 @@ def main():
     folder = bool(a) and (a[0] in ("--folder","-f") or os.path.isdir(a[0]))
     if not a or (not folder and len(a)<2):
         print("usage:\n"
-              "  single file : python3 mis_to_geo.py  input.mis  output_geo.json\n"
-              "  whole folder: python3 mis_to_geo.py  --folder  INPUT_DIR  [OUTPUT_DIR]")
+              "  single file : py mis_to_geo.py  input.mis  output_geo.json\n"
+              "  whole folder: py mis_to_geo.py  --folder  INPUT_DIR  [OUTPUT_DIR]")
         return
     if folder:
         idir = a[1] if a[0] in ("--folder","-f") else a[0]

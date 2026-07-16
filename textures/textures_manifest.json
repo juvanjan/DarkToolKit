@@ -1,0 +1,349 @@
+{
+ "count": 43,
+ "textures": {
+  "ASFALT": {
+   "png": "ASFALT.png",
+   "source": "ASFALT.PCX",
+   "size": [
+    256,
+    256
+   ]
+  },
+  "BIGBL": {
+   "png": "BIGBL.png",
+   "source": "bigbl.dds",
+   "size": [
+    512,
+    512
+   ]
+  },
+  "BIGBL2": {
+   "png": "BIGBL2.png",
+   "source": "BIGBL2.dds",
+   "size": [
+    256,
+    256
+   ]
+  },
+  "BLOX": {
+   "png": "BLOX.png",
+   "source": "BLOX.PCX",
+   "size": [
+    64,
+    64
+   ]
+  },
+  "BLOXWALL": {
+   "png": "BLOXWALL.png",
+   "source": "bloxwall.dds",
+   "size": [
+    512,
+    512
+   ]
+  },
+  "Blubrik1": {
+   "png": "Blubrik1.png",
+   "source": "blubrik1.dds",
+   "size": [
+    512,
+    512
+   ]
+  },
+  "Blustn": {
+   "png": "Blustn.png",
+   "source": "blustn.dds",
+   "size": [
+    512,
+    512
+   ]
+  },
+  "Brickfl1": {
+   "png": "Brickfl1.png",
+   "source": "Brickfl1.dds",
+   "size": [
+    512,
+    512
+   ]
+  },
+  "Brickfl3": {
+   "png": "Brickfl3.png",
+   "source": "Brickfl3.PCX",
+   "size": [
+    64,
+    64
+   ]
+  },
+  "Cave": {
+   "png": "Cave.png",
+   "source": "cave.dds",
+   "size": [
+    1024,
+    1024
+   ]
+  },
+  "Cavrgh5": {
+   "png": "Cavrgh5.png",
+   "source": "Cavrgh5.PCX",
+   "size": [
+    64,
+    64
+   ]
+  },
+  "Cement": {
+   "png": "Cement.png",
+   "source": "Cement.PCX",
+   "size": [
+    64,
+    64
+   ]
+  },
+  "Clnbrik1": {
+   "png": "Clnbrik1.png",
+   "source": "Clnbrik1.PCX",
+   "size": [
+    64,
+    64
+   ]
+  },
+  "Cobbel": {
+   "png": "Cobbel.png",
+   "source": "Cobbel.PCX",
+   "size": [
+    256,
+    256
+   ]
+  },
+  "Cobl2": {
+   "png": "Cobl2.png",
+   "source": "Cobl2.PCX",
+   "size": [
+    256,
+    256
+   ]
+  },
+  "Cobl2lo": {
+   "png": "Cobl2lo.png",
+   "source": "Cobl2lo.PCX",
+   "size": [
+    32,
+    32
+   ]
+  },
+  "Cobls1": {
+   "png": "Cobls1.png",
+   "source": "cobls1.dds",
+   "size": [
+    512,
+    512
+   ]
+  },
+  "Cracked": {
+   "png": "Cracked.png",
+   "source": "Cracked.PCX",
+   "size": [
+    64,
+    64
+   ]
+  },
+  "Cragston": {
+   "png": "Cragston.png",
+   "source": "cragston.dds",
+   "size": [
+    512,
+    512
+   ]
+  },
+  "Filston0": {
+   "png": "Filston0.png",
+   "source": "Filston0.PCX",
+   "size": [
+    64,
+    64
+   ]
+  },
+  "Ftile3": {
+   "png": "Ftile3.png",
+   "source": "Ftile3.PCX",
+   "size": [
+    64,
+    64
+   ]
+  },
+  "Granit2": {
+   "png": "Granit2.png",
+   "source": "granit2.dds",
+   "size": [
+    512,
+    512
+   ]
+  },
+  "Gstnwal3": {
+   "png": "Gstnwal3.png",
+   "source": "Gstnwal3.PCX",
+   "size": [
+    64,
+    64
+   ]
+  },
+  "Gstone1": {
+   "png": "Gstone1.png",
+   "source": "Gstone1.PCX",
+   "size": [
+    64,
+    64
+   ]
+  },
+  "Gstone2": {
+   "png": "Gstone2.png",
+   "source": "Gstone2.PCX",
+   "size": [
+    64,
+    64
+   ]
+  },
+  "Hewn3": {
+   "png": "Hewn3.png",
+   "source": "Hewn3.PCX",
+   "size": [
+    128,
+    128
+   ]
+  },
+  "Hewn4": {
+   "png": "Hewn4.png",
+   "source": "Hewn4.PCX",
+   "size": [
+    128,
+    128
+   ]
+  },
+  "Ironrock": {
+   "png": "Ironrock.png",
+   "source": "Ironrock.PCX",
+   "size": [
+    64,
+    64
+   ]
+  },
+  "Ledge": {
+   "png": "Ledge.png",
+   "source": "Ledge.PCX",
+   "size": [
+    64,
+    64
+   ]
+  },
+  "Ledge1": {
+   "png": "Ledge1.png",
+   "source": "Ledge1.PCX",
+   "size": [
+    64,
+    64
+   ]
+  },
+  "Obaswal7": {
+   "png": "Obaswal7.png",
+   "source": "obaswal7.dds",
+   "size": [
+    512,
+    256
+   ]
+  },
+  "Odstone": {
+   "png": "Odstone.png",
+   "source": "Odstone.PCX",
+   "size": [
+    64,
+    64
+   ]
+  },
+  "Robblock": {
+   "png": "Robblock.png",
+   "source": "robblock.dds",
+   "size": [
+    512,
+    512
+   ]
+  },
+  "Rufgry": {
+   "png": "Rufgry.png",
+   "source": "rufgry.dds",
+   "size": [
+    512,
+    512
+   ]
+  },
+  "Sandy": {
+   "png": "Sandy.png",
+   "source": "sandy.dds",
+   "size": [
+    512,
+    512
+   ]
+  },
+  "Stnwal3": {
+   "png": "Stnwal3.png",
+   "source": "Stnwal3.PCX",
+   "size": [
+    64,
+    64
+   ]
+  },
+  "Stone4": {
+   "png": "Stone4.png",
+   "source": "Stone4.PCX",
+   "size": [
+    64,
+    64
+   ]
+  },
+  "Stuc2": {
+   "png": "Stuc2.png",
+   "source": "Stuc2.PCX",
+   "size": [
+    64,
+    64
+   ]
+  },
+  "Tile": {
+   "png": "Tile.png",
+   "source": "Tile.PCX",
+   "size": [
+    64,
+    64
+   ]
+  },
+  "Trans": {
+   "png": "Trans.png",
+   "source": "Trans.PCX",
+   "size": [
+    64,
+    64
+   ]
+  },
+  "Tst2": {
+   "png": "Tst2.png",
+   "source": "Tst2.PCX",
+   "size": [
+    64,
+    64
+   ]
+  },
+  "Wallcat1": {
+   "png": "Wallcat1.png",
+   "source": "wallcat1.dds",
+   "size": [
+    512,
+    512
+   ]
+  },
+  "Wdplnk2g": {
+   "png": "Wdplnk2g.png",
+   "source": "Wdplnk2g.dds",
+   "size": [
+    512,
+    512
+   ]
+  }
+ }
+}

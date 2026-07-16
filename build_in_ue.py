@@ -26,12 +26,17 @@
 
 import unreal, json, math
 
-GEO_PATH    = r"C:\Nex\DarkSimProject\DarkSimToolkit\test_missions\00_geo.json"   # <-- SET (the *_geo.json)
+GEO_PATH    = r"C:\Nex\DarkSimProject\DarkSimToolkit\test_missions\09_geo.json"   # <-- SET (the *_geo.json)
 ASSET_PATH  = r"/Game/Mission/SM_Mission"
 BUILD_WATER = True        # also bake the water volume as a separate static mesh (SM_..._Water)
+BUILD_COLLISION = True    # give the mesh collision (complex-as-simple: the triangles ARE the collision)
 TEST_LIMIT  = 0           # 0 = full mission; >0 = world solid + first N brushes (quick preview)
-UV_TILE_CM  = 256.0       # world-space texture tile size (one texture repeat per this many cm)
+UV_TILE_CM  = 64.0        # world-space texture tile size (one texture repeat per this many cm)
+                          #   calibrated to Dark scale 16 (~2.1 ft/tile). Halve it -> texture bigger.
 
+RES_SCALING = False       # per-texture material tiling (superseded by per-face UV formula below)
+TEXEL_REF_PX = 64.0       # fallback texture width if a texture's size is unknown
+FEET_CM = 30.48           # Dark world tile (feet) = pixels * 2^(scale-20); this converts feet -> cm
 BUILD_TEXTURES = True     # assign real Dark textures (needs the *_geo.json with per-face "faces" data)
 TEX_DIR   = r"C:/Nex/DarkSimProject/DarkSimToolkit/textures"   # folder with the PNGs + textures_manifest.json
 MAT_ROOT  = r"/Game/Mission/Materials"                     # where imported textures + materials are created
@@ -287,14 +292,18 @@ def recover_cylinder(verts,tris):
         for i in range(3):
             Y[i]+=bb[i]
             for j in range(3): M[i][j]+=bb[i]*bb[j]
-    A,Bc,Cc=_solve3(M,Y)
-    tr=A+Cc; disc=max(0.0,(tr/2)**2-(A*Cc-(Bc/2)**2))
-    l1=tr/2+math.sqrt(disc); l2=tr/2-math.sqrt(disc)
-    a=1.0/math.sqrt(l2); bmin=1.0/math.sqrt(l1)      # a = major semi-axis, along ang
-    ang=0.5*math.atan2(Bc,A-Cc)
-    # ellipse frame in world: major along e1 rotated by ang
-    xw=[math.cos(ang)*e1[i]+math.sin(ang)*e2[i] for i in range(3)]
-    yw=[-math.sin(ang)*e1[i]+math.cos(ang)*e2[i] for i in range(3)]
+    A,Bc,Cc=_solve3(M,Y); H=Bc/2.0
+    tr=A+Cc; disc=max(0.0,(tr/2)**2-(A*Cc-H*H))
+    l1=tr/2+math.sqrt(disc); l2=tr/2-math.sqrt(disc)   # l2 = smaller eigenvalue -> MAJOR axis
+    a=1.0/math.sqrt(l2); bmin=1.0/math.sqrt(l1)
+    # eigenvector of the conic matrix [[A,H],[H,C]] for l2 gives the TRUE major direction
+    # (the old atan2 angle mis-assigned major vs minor for eccentric ellipses -> wrong rotation).
+    if abs(H)<1e-9:
+        v2=[1.0,0.0] if A<=Cc else [0.0,1.0]
+    else:
+        vv=[H, l2-A]; ln=math.hypot(vv[0],vv[1]) or 1.0; v2=[vv[0]/ln, vv[1]/ln]
+    xw=[v2[0]*e1[i]+v2[1]*e2[i] for i in range(3)]
+    yw=[-v2[1]*e1[i]+v2[0]*e2[i] for i in range(3)]
     ax=[_norm(xw),_norm(yw),axis]
     if _dot(_cross(ax[0],ax[1]),ax[2])<0: ax[1]=[-x for x in ax[1]]
     sides=len(verts)//2
@@ -333,7 +342,7 @@ def mk_buffer(b):
 # log it and skip texturing, so geometry always still builds. Material IDs are GLOBAL (a texture name
 # always maps to the same id) so they survive the boolean and map to the right material at the end.
 import os as _os, json as _json
-_MANIFEST={}; _MATS={}; _NEXTID=[1]      # id 0 reserved for the default/inherit material
+_MANIFEST={}; _MANIFEST_LC={}; _MATS={}; _NEXTID=[1]   # id 0 reserved for the default/inherit material
 _DEFAULT_MAT=[None]
 _TEX_OK=[BUILD_TEXTURES]
 
@@ -357,8 +366,11 @@ GMAT_TRI,_SETMATTRI = _find(["set_triangle_material_id","set_material_id_on_tria
 GSEL_N, _SELN = _find(["select_mesh_elements_by_normal_angle","select_mesh_faces_by_normal_angle"],"select","normal")
 GMAT_SEL,_SETMATSEL = _find(["set_material_id_for_mesh_selection","set_material_i_ds_for_mesh_selection"],"material","selection")
 # world-scale UVs   (note: real name is set_mesh_u_vs_... with u_vs)
-GUV_BOX, _UVBOX = _find(["set_mesh_u_vs_from_box_projection","set_mesh_u_vs_from_planar_projection"],"u_vs","projection")
+GUV_BOX, _UVBOX = _find(["set_mesh_u_vs_from_box_projection"],"u_vs","box","projection")
+GUV_PLN, _UVPLN = _find(["set_mesh_u_vs_from_planar_projection"],"u_vs","planar")
 GMAT_EN,_ENMATID = _find(["enable_material_i_ds","enable_material_ids"],"enable","material")
+_PERFACE_UV=[BUILD_TEXTURES]   # per-face planar UVs at exact Dark scale (px * 2^(sc-20) ft per tile)
+_PERFACE_LOGGED=[False]
 
 def _dump(libname, *contains):
     o=getattr(unreal,libname,None)
@@ -395,6 +407,7 @@ def _load_manifest():
         if _os.path.isfile(mp):
             _TEX_ROOT[0]=c
             data=_json.load(open(mp)); _MANIFEST.update(data.get("textures",{}))
+            _MANIFEST_LC.update({k.lower():v for k,v in _MANIFEST.items()})   # case-insensitive lookup
             unreal.log("Loaded manifest: %d textures from %s"%(len(_MANIFEST),c)); return
     unreal.log_warning("no textures_manifest.json found (looked in: %s); textures disabled"%" | ".join(cands))
     _TEX_OK[0]=False
@@ -407,7 +420,7 @@ def _existing(pkg, name):
     return None
 
 def _import_texture(name):
-    entry=_MANIFEST.get(name)
+    entry=_MANIFEST.get(name) or _MANIFEST_LC.get(name.lower())   # texture names vary in case per mission
     if not entry: return None
     stem=_os.path.splitext(entry["png"])[0]
     ex=_existing(MAT_ROOT, stem)                       # reuse if already imported (re-run safe)
@@ -422,16 +435,32 @@ def _import_texture(name):
     outs=task.get_editor_property("imported_object_paths")
     return unreal.load_asset(outs[0]) if outs else None
 
+def _tex_res(tex):
+    f=getattr(tex,"blueprint_get_size_x",None)
+    if callable(f):
+        try: return float(f())
+        except Exception: pass
+    try:
+        s=tex.get_editor_property("imported_size"); return float(s.x)
+    except Exception: return None
+
 def _make_material(name, tex):
     ex=_existing(MAT_ROOT, "M_"+name)                  # reuse if already created (re-run safe)
     if ex is not None: return ex
+    MEL=unreal.MaterialEditingLibrary
     at=unreal.AssetToolsHelpers.get_asset_tools()
     mat=at.create_asset("M_"+name, MAT_ROOT, unreal.Material, unreal.MaterialFactoryNew())
     try:
-        ts=unreal.MaterialEditingLibrary.create_material_expression(mat, unreal.MaterialExpressionTextureSample)
+        ts=MEL.create_material_expression(mat, unreal.MaterialExpressionTextureSample)
         ts.set_editor_property("texture",tex)
-        unreal.MaterialEditingLibrary.connect_material_property(ts,"RGB",unreal.MaterialProperty.MP_BASE_COLOR)
-        unreal.MaterialEditingLibrary.recompile_material(mat)
+        if RES_SCALING:                                # tile by resolution -> Dark constant texel density
+            res=_tex_res(tex) or TEXEL_REF_PX
+            til=TEXEL_REF_PX/res                       # >64px texture -> tiling <1 -> bigger world tile
+            tc=MEL.create_material_expression(mat, unreal.MaterialExpressionTextureCoordinate)
+            tc.set_editor_property("u_tiling", til); tc.set_editor_property("v_tiling", til)
+            MEL.connect_material_expressions(tc, "", ts, "UVs")
+        MEL.connect_material_property(ts,"RGB",unreal.MaterialProperty.MP_BASE_COLOR)
+        MEL.recompile_material(mat)
     except Exception as e:
         unreal.log_warning("  material wiring failed for %s (%s)"%(name,e))
     return mat
@@ -445,11 +474,12 @@ def _default_material():
 
 def material_id(tex_name):
     if not _TEX_OK[0] or tex_name is None: return 0
-    if tex_name not in _MATS:
+    key=tex_name.lower()                                 # one material per texture regardless of case
+    if key not in _MATS:
         tex=_import_texture(tex_name)
         mat=_make_material(tex_name,tex) if tex else _default_material()
-        _MATS[tex_name]=(_NEXTID[0],mat); _NEXTID[0]+=1
-    return _MATS[tex_name][0]
+        _MATS[key]=(_NEXTID[0],mat); _NEXTID[0]+=1
+    return _MATS[key][0]
 
 def _tri_normal(mesh,tid):
     for call in ((mesh,tid),(mesh,tid,True)):
@@ -518,13 +548,78 @@ def tag_materials(mesh, b):
     _TAG_MODE[0]="off"; unreal.log_warning("  material tagging failed both ways; textures disabled")
 
 def apply_world_uvs(mesh):
-    """Fixed world-scale planar/box UVs: one texture repeat per UV_TILE_CM."""
-    if not _UVBOX: return
+    """Fixed world-scale box UVs (one repeat per UV_TILE_CM) over the whole mesh."""
+    if not _UVBOX: unreal.log_warning("  UV: no box-projection function; UVs unchanged"); return
     t=unreal.Transform()
     t.set_editor_property("scale3d", unreal.Vector(UV_TILE_CM,UV_TILE_CM,UV_TILE_CM))
-    for a in ((mesh,0,t),(mesh,0,t,1.0),(mesh,t),(mesh,0,t,None),(mesh,0,t,1.0,True)):
-        try: getattr(GUV_BOX,_UVBOX)(*a); return
+    esel=unreal.GeometryScriptMeshSelection()
+    for a in ((mesh,0,t,esel,2),(mesh,0,t,esel),(mesh,0,t),(mesh,0,t,None),(mesh,t)):
+        try:
+            getattr(GUV_BOX,_UVBOX)(*a); unreal.log("  UV: box projection applied (args=%d)"%len(a)); return
         except Exception: continue
+    unreal.log_warning("  UV: box projection failed on all signatures")
+
+def _pick_selection(r):
+    # the function returns (target_mesh, selection) - grab the GeometryScriptMeshSelection, not the mesh
+    if isinstance(r,(tuple,list)):
+        for x in r:
+            if isinstance(x, unreal.GeometryScriptMeshSelection): return x
+        return r[-1]
+    return r
+
+def _select_by_normal(mesh, nv):
+    for call in ((mesh,nv,15.0),(mesh,nv,15.0,True)):
+        try:
+            r=getattr(GSEL_N,_SELN)(*call); sel=_pick_selection(r)
+            if sel is not None and not isinstance(sel, unreal.DynamicMesh): return sel
+        except Exception: continue
+    return None
+
+def _face_res(tex):
+    if not tex: return TEXEL_REF_PX
+    e=_MANIFEST.get(tex) or _MANIFEST_LC.get(tex.lower())
+    if e and e.get("size"): return float(e["size"][0])
+    return TEXEL_REF_PX
+
+def apply_face_uvs(mesh, b):
+    """Per-face planar UVs honoring the face's Dark scale, rotation, and U/V offset.
+       World tile size (feet) = texture_pixels * 2^(scale-20)  (verified vs DromEd)."""
+    if not _PERFACE_UV[0]: return
+    if not (GUV_PLN and GSEL_N):
+        _PERFACE_UV[0]=False; unreal.log_warning("  per-face UV: planar/selection funcs missing"); return
+    faces=b.get("faces") or []
+    if not faces: return          # e.g. the world box (no per-face data) - skip WITHOUT disabling per-face
+    for f in faces:
+        n=f["n"]; nv=unreal.Vector(n[0],n[1],n[2])
+        sc=int(f.get("sc",16)); res=_face_res(f.get("tex"))
+        tile=res*(2.0**(sc-20))*FEET_CM                 # world tile in cm
+        rot=math.radians(float(f.get("rot",0.0) or 0.0))+math.pi   # base was 180 deg off (verified vs DromEd)
+        uoff=float(f.get("uoff",0.0) or 0.0); voff=float(f.get("voff",0.0) or 0.0)
+        sel=_select_by_normal(mesh,nv)
+        if sel is None: _PERFACE_UV[0]=False; unreal.log_warning("  per-face UV: no normal selection; using global box UV"); return
+        # CONSISTENT in-plane axes: walls -> V points up (+Z), U horizontal; floor/ceiling -> fixed X/Y.
+        if abs(n[2])>0.99:                               # top / bottom
+            u0=[1.0,0.0,0.0]; v0=[0.0,1.0,0.0]
+        else:                                            # walls (normal horizontal)
+            u0=_norm(_cross([0.0,0.0,1.0], n)); v0=_norm(_cross(n,u0))
+        c=math.cos(rot); s=math.sin(rot)
+        U=[c*u0[i]+s*v0[i] for i in range(3)]
+        V=[-s*u0[i]+c*v0[i] for i in range(3)]
+        t=unreal.Transform()
+        t.set_editor_property("rotation", _quat_from_axes([U,V,list(n)]))
+        off=[(uoff*tile)*U[i]+(voff*tile)*V[i] for i in range(3)]   # shift projection origin by the offset
+        t.set_editor_property("translation", unreal.Vector(off[0],off[1],off[2]))
+        t.set_editor_property("scale3d", unreal.Vector(tile,tile,1.0))
+        ok=False; err=None
+        for call in ((mesh,0,t,sel),(mesh,0,t,sel,True),(mesh,sel,0,t)):
+            try: getattr(GUV_PLN,_UVPLN)(*call); ok=True; break
+            except Exception as e: err=e; continue
+        if not ok:
+            _PERFACE_UV[0]=False
+            unreal.log_warning("  per-face UV: planar projection failed (%s); using global box UV"%err); return
+        if not _PERFACE_LOGGED[0]:
+            _PERFACE_LOGGED[0]=True
+            unreal.log("  per-face UV OK (e.g. %s sc=%d -> tile=%.0fcm)"%(f.get("tex"),sc,tile))
 
 def assign_materials(sm):
     if not _TEX_OK[0]: return
@@ -540,7 +635,9 @@ def mk(b):
     elif b.get("shape")=="wedge":  m=mk_wedge(b)
     elif b.get("shape")=="cylinder": m=mk_cylinder(b)
     else:                          m=mk_buffer(b)
-    if _TEX_OK[0]: tag_materials(m,b)
+    if _TEX_OK[0]:
+        tag_materials(m,b)
+        apply_face_uvs(m,b)          # per-face UVs at Dark scale (before boolean, so they carry through)
     return m
 
 def bake(mesh, path):
@@ -561,6 +658,32 @@ def bake(mesh, path):
             r=fn(*args); return r[0] if isinstance(r,(tuple,list)) else r
         except Exception: pass
     return None
+def set_collision(sm):
+    """Level geometry: use the render triangles directly as collision (complex-as-simple)."""
+    if not BUILD_COLLISION: return
+    try:
+        bs=sm.get_editor_property("body_setup")
+        if bs is None:                                  # force a body setup to exist
+            try:
+                ses=unreal.get_editor_subsystem(unreal.StaticMeshEditorSubsystem)
+                ses.set_convex_decomposition_collisions(sm,0,0)   # creates body setup; we override below
+                bs=sm.get_editor_property("body_setup")
+            except Exception: pass
+        if bs is not None:
+            bs.set_editor_property("collision_trace_flag", unreal.CollisionTraceFlag.CTF_USE_COMPLEX_AS_SIMPLE)
+            sm.set_editor_property("body_setup", bs)
+            try: bs.invalidate_physics_data()
+            except Exception: pass
+            try: unreal.EditorAssetLibrary.save_loaded_asset(sm)
+            except Exception:
+                try: sm.mark_package_dirty()
+                except Exception: pass
+            unreal.log("  collision: complex-as-simple enabled")
+        else:
+            unreal.log_warning("  could not access body_setup; collision not set")
+    except Exception as e:
+        unreal.log_warning("  set_collision failed: %s"%e)
+
 def spawn(sm, label):
     eas=unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
     try:                                                # reuse an actor with this label (no duplicates)
@@ -613,10 +736,16 @@ def run():
     if first_err[0]: unreal.log_error("First boolean error: %s"%first_err[0])
 
     ensure_uv_normals(result)
-    if _TEX_OK[0]: apply_world_uvs(result)
+    if _TEX_OK[0]:
+        if _PERFACE_UV[0]:
+            unreal.log("UVs: per-face Dark scale  (tile ft = px * 2^(scale-20))")
+        else:
+            apply_world_uvs(result)   # fallback: uniform box projection if per-face UV was unavailable
+            unreal.log("UVs: world-scale box projection (one repeat / %.0f cm)"%UV_TILE_CM)
     sm=bake(result, ASSET_PATH)
     if sm is None: unreal.log_error("bake failed"); return
     assign_materials(sm)
+    set_collision(sm)
     spawn(sm, ASSET_PATH.rsplit("/",1)[-1])
     unreal.log("Level -> %s"%ASSET_PATH)
 

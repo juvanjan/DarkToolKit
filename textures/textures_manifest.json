@@ -1,11 +1,57 @@
 {
- "count": 43,
+ "count": 76,
  "textures": {
+  "2ARCH": {
+   "png": "2ARCH.png",
+   "family": "CATACOMB",
+   "folder": "CATACOMB",
+   "source": "fam.crf::CATACOMB/2ARCH.PCX",
+   "family_matched": true,
+   "size": [
+    64,
+    64
+   ],
+   "used_by": [
+    "09.mis",
+    "10.mis",
+    "11.mis"
+   ]
+  },
+  "aaaa": {
+   "png": "aaaa.png",
+   "family": "testing",
+   "folder": "testing",
+   "source": "aaaa.png",
+   "family_matched": true,
+   "size": [
+    128,
+    128
+   ],
+   "used_by": [
+    "09.mis"
+   ]
+  },
+  "ANGEL": {
+   "png": "ANGEL.png",
+   "family": "CATACOMB",
+   "folder": "CATACOMB",
+   "source": "fam.crf::CATACOMB/ANGEL.PCX",
+   "family_matched": true,
+   "size": [
+    128,
+    64
+   ],
+   "used_by": [
+    "09.mis",
+    "10.mis",
+    "11.mis"
+   ]
+  },
   "ASFALT": {
    "png": "ASFALT.png",
    "family": "core_1",
-   "folder": "core_1",
-   "source": "ASFALT.PCX",
+   "folder": "Core_1",
+   "source": "fam.crf::Core_1/ASFALT.PCX",
    "family_matched": true,
    "size": [
     256,
@@ -20,7 +66,24 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
+   ]
+  },
+  "bbbb": {
+   "png": "bbbb.png",
+   "family": "testing",
+   "folder": "testing",
+   "source": "bbbb.png",
+   "family_matched": true,
+   "size": [
+    256,
+    256
+   ],
+   "used_by": [
+    "09.mis"
    ]
   },
   "BIGBL": {
@@ -42,7 +105,10 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "BIGBL2": {
@@ -64,14 +130,17 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "BLOX": {
    "png": "BLOX.png",
    "family": "core_1",
-   "folder": "core_1",
-   "source": "BLOX.PCX",
+   "folder": "Core_1",
+   "source": "fam.crf::Core_1/BLOX.PCX",
    "family_matched": true,
    "size": [
     64,
@@ -86,7 +155,10 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "BLOXWALL": {
@@ -108,7 +180,10 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Blubrik1": {
@@ -130,7 +205,10 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Blustn": {
@@ -152,7 +230,42 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
+   ]
+  },
+  "BONE1": {
+   "png": "BONE1.png",
+   "family": "CATACOMB",
+   "folder": "CATACOMB",
+   "source": "fam.crf::CATACOMB/BONE1.PCX",
+   "family_matched": true,
+   "size": [
+    64,
+    64
+   ],
+   "used_by": [
+    "09.mis",
+    "10.mis",
+    "11.mis"
+   ]
+  },
+  "BONE2": {
+   "png": "BONE2.png",
+   "family": "CATACOMB",
+   "folder": "CATACOMB",
+   "source": "fam.crf::CATACOMB/BONE2.PCX",
+   "family_matched": true,
+   "size": [
+    64,
+    64
+   ],
+   "used_by": [
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Brickfl1": {
@@ -174,14 +287,17 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Brickfl3": {
    "png": "Brickfl3.png",
    "family": "core_1",
-   "folder": "core_1",
-   "source": "Brickfl3.PCX",
+   "folder": "Core_1",
+   "source": "fam.crf::Core_1/Brickfl3.PCX",
    "family_matched": true,
    "size": [
     64,
@@ -196,7 +312,42 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
+   ]
+  },
+  "BRSSDOOR": {
+   "png": "BRSSDOOR.png",
+   "family": "CATACOMB",
+   "folder": "CATACOMB",
+   "source": "fam.crf::CATACOMB/BRSSDOOR.PCX",
+   "family_matched": true,
+   "size": [
+    64,
+    128
+   ],
+   "used_by": [
+    "09.mis",
+    "10.mis",
+    "11.mis"
+   ]
+  },
+  "BRSSLION": {
+   "png": "BRSSLION.png",
+   "family": "CATACOMB",
+   "folder": "CATACOMB",
+   "source": "fam.crf::CATACOMB/BRSSLION.PCX",
+   "family_matched": true,
+   "size": [
+    64,
+    64
+   ],
+   "used_by": [
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Cave": {
@@ -218,14 +369,17 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Cavrgh5": {
    "png": "Cavrgh5.png",
    "family": "core_1",
-   "folder": "core_1",
-   "source": "Cavrgh5.PCX",
+   "folder": "Core_1",
+   "source": "fam.crf::Core_1/Cavrgh5.PCX",
    "family_matched": true,
    "size": [
     64,
@@ -240,14 +394,63 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
+   ]
+  },
+  "CAVTRANS": {
+   "png": "CAVTRANS.png",
+   "family": "CATACOMB",
+   "folder": "CATACOMB",
+   "source": "fam.crf::CATACOMB/CAVTRANS.PCX",
+   "family_matched": true,
+   "size": [
+    64,
+    64
+   ],
+   "used_by": [
+    "09.mis",
+    "10.mis",
+    "11.mis"
+   ]
+  },
+  "cccc": {
+   "png": "cccc.png",
+   "family": "testing",
+   "folder": "testing",
+   "source": "cccc.png",
+   "family_matched": true,
+   "size": [
+    512,
+    512
+   ],
+   "used_by": [
+    "09.mis"
+   ]
+  },
+  "CELT1": {
+   "png": "CELT1.png",
+   "family": "CATACOMB",
+   "folder": "CATACOMB",
+   "source": "fam.crf::CATACOMB/CELT1.PCX",
+   "family_matched": true,
+   "size": [
+    64,
+    64
+   ],
+   "used_by": [
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Cement": {
    "png": "Cement.png",
    "family": "core_1",
-   "folder": "core_1",
-   "source": "Cement.PCX",
+   "folder": "Core_1",
+   "source": "fam.crf::Core_1/Cement.PCX",
    "family_matched": true,
    "size": [
     64,
@@ -262,14 +465,17 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Clnbrik1": {
    "png": "Clnbrik1.png",
    "family": "core_1",
-   "folder": "core_1",
-   "source": "Clnbrik1.PCX",
+   "folder": "Core_1",
+   "source": "fam.crf::Core_1/Clnbrik1.PCX",
    "family_matched": true,
    "size": [
     64,
@@ -284,14 +490,17 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Cobbel": {
    "png": "Cobbel.png",
    "family": "core_1",
-   "folder": "core_1",
-   "source": "Cobbel.PCX",
+   "folder": "Core_1",
+   "source": "fam.crf::Core_1/Cobbel.PCX",
    "family_matched": true,
    "size": [
     256,
@@ -306,14 +515,17 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Cobl2": {
    "png": "Cobl2.png",
    "family": "core_1",
-   "folder": "core_1",
-   "source": "Cobl2.PCX",
+   "folder": "Core_1",
+   "source": "fam.crf::Core_1/Cobl2.PCX",
    "family_matched": true,
    "size": [
     256,
@@ -328,14 +540,17 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Cobl2lo": {
    "png": "Cobl2lo.png",
    "family": "core_1",
-   "folder": "core_1",
-   "source": "Cobl2lo.PCX",
+   "folder": "Core_1",
+   "source": "fam.crf::Core_1/Cobl2lo.PCX",
    "family_matched": true,
    "size": [
     32,
@@ -350,7 +565,10 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Cobls1": {
@@ -372,14 +590,49 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
+   ]
+  },
+  "CON1": {
+   "png": "CON1.png",
+   "family": "CATACOMB",
+   "folder": "CATACOMB",
+   "source": "fam.crf::CATACOMB/CON1.PCX",
+   "family_matched": true,
+   "size": [
+    64,
+    64
+   ],
+   "used_by": [
+    "09.mis",
+    "10.mis",
+    "11.mis"
+   ]
+  },
+  "CON1SML": {
+   "png": "CON1SML.png",
+   "family": "CATACOMB",
+   "folder": "CATACOMB",
+   "source": "fam.crf::CATACOMB/CON1SML.PCX",
+   "family_matched": true,
+   "size": [
+    64,
+    64
+   ],
+   "used_by": [
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Cracked": {
    "png": "Cracked.png",
    "family": "core_1",
-   "folder": "core_1",
-   "source": "Cracked.PCX",
+   "folder": "Core_1",
+   "source": "fam.crf::Core_1/Cracked.PCX",
    "family_matched": true,
    "size": [
     64,
@@ -394,7 +647,10 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Cragston": {
@@ -416,14 +672,97 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
+   ]
+  },
+  "CUP": {
+   "png": "CUP.png",
+   "family": "CATACOMB",
+   "folder": "CATACOMB",
+   "source": "fam.crf::CATACOMB/CUP.PCX",
+   "family_matched": true,
+   "size": [
+    64,
+    64
+   ],
+   "used_by": [
+    "09.mis",
+    "10.mis",
+    "11.mis"
+   ]
+  },
+  "DEDGUY": {
+   "png": "DEDGUY.png",
+   "family": "CATACOMB",
+   "folder": "CATACOMB",
+   "source": "fam.crf::CATACOMB/DEDGUY.PCX",
+   "family_matched": true,
+   "size": [
+    64,
+    128
+   ],
+   "used_by": [
+    "09.mis",
+    "10.mis",
+    "11.mis"
+   ]
+  },
+  "DEDGUY2": {
+   "png": "DEDGUY2.png",
+   "family": "CATACOMB",
+   "folder": "CATACOMB",
+   "source": "fam.crf::CATACOMB/DEDGUY2.PCX",
+   "family_matched": true,
+   "size": [
+    128,
+    64
+   ],
+   "used_by": [
+    "09.mis",
+    "10.mis",
+    "11.mis"
+   ]
+  },
+  "DEDGUY3": {
+   "png": "DEDGUY3.png",
+   "family": "CATACOMB",
+   "folder": "CATACOMB",
+   "source": "fam.crf::CATACOMB/DEDGUY3.PCX",
+   "family_matched": true,
+   "size": [
+    64,
+    128
+   ],
+   "used_by": [
+    "09.mis",
+    "10.mis",
+    "11.mis"
+   ]
+  },
+  "DET1": {
+   "png": "DET1.png",
+   "family": "CATACOMB",
+   "folder": "CATACOMB",
+   "source": "fam.crf::CATACOMB/DET1.PCX",
+   "family_matched": true,
+   "size": [
+    64,
+    64
+   ],
+   "used_by": [
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Filston0": {
    "png": "Filston0.png",
    "family": "core_1",
-   "folder": "core_1",
-   "source": "Filston0.PCX",
+   "folder": "Core_1",
+   "source": "fam.crf::Core_1/Filston0.PCX",
    "family_matched": true,
    "size": [
     64,
@@ -438,14 +777,17 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Ftile3": {
    "png": "Ftile3.png",
    "family": "core_1",
-   "folder": "core_1",
-   "source": "Ftile3.PCX",
+   "folder": "Core_1",
+   "source": "fam.crf::Core_1/Ftile3.PCX",
    "family_matched": true,
    "size": [
     64,
@@ -460,7 +802,26 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
+   ]
+  },
+  "GFACE": {
+   "png": "GFACE.png",
+   "family": "CATACOMB",
+   "folder": "CATACOMB",
+   "source": "fam.crf::CATACOMB/GFACE.PCX",
+   "family_matched": true,
+   "size": [
+    64,
+    64
+   ],
+   "used_by": [
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Granit2": {
@@ -482,14 +843,17 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Gstnwal3": {
    "png": "Gstnwal3.png",
    "family": "core_1",
-   "folder": "core_1",
-   "source": "Gstnwal3.PCX",
+   "folder": "Core_1",
+   "source": "fam.crf::Core_1/Gstnwal3.PCX",
    "family_matched": true,
    "size": [
     64,
@@ -504,14 +868,17 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Gstone1": {
    "png": "Gstone1.png",
    "family": "core_1",
-   "folder": "core_1",
-   "source": "Gstone1.PCX",
+   "folder": "Core_1",
+   "source": "fam.crf::Core_1/Gstone1.PCX",
    "family_matched": true,
    "size": [
     64,
@@ -526,14 +893,17 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Gstone2": {
    "png": "Gstone2.png",
    "family": "core_1",
-   "folder": "core_1",
-   "source": "Gstone2.PCX",
+   "folder": "Core_1",
+   "source": "fam.crf::Core_1/Gstone2.PCX",
    "family_matched": true,
    "size": [
     64,
@@ -548,14 +918,49 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
+   ]
+  },
+  "GTOMB": {
+   "png": "GTOMB.png",
+   "family": "CATACOMB",
+   "folder": "CATACOMB",
+   "source": "fam.crf::CATACOMB/GTOMB.PCX",
+   "family_matched": true,
+   "size": [
+    64,
+    128
+   ],
+   "used_by": [
+    "09.mis",
+    "10.mis",
+    "11.mis"
+   ]
+  },
+  "HAMMER1": {
+   "png": "HAMMER1.png",
+   "family": "CATACOMB",
+   "folder": "CATACOMB",
+   "source": "fam.crf::CATACOMB/HAMMER1.PCX",
+   "family_matched": true,
+   "size": [
+    64,
+    64
+   ],
+   "used_by": [
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Hewn3": {
    "png": "Hewn3.png",
    "family": "core_1",
-   "folder": "core_1",
-   "source": "Hewn3.PCX",
+   "folder": "Core_1",
+   "source": "fam.crf::Core_1/Hewn3.PCX",
    "family_matched": true,
    "size": [
     128,
@@ -570,14 +975,17 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Hewn4": {
    "png": "Hewn4.png",
    "family": "core_1",
-   "folder": "core_1",
-   "source": "Hewn4.PCX",
+   "folder": "Core_1",
+   "source": "fam.crf::Core_1/Hewn4.PCX",
    "family_matched": true,
    "size": [
     128,
@@ -592,14 +1000,17 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Ironrock": {
    "png": "Ironrock.png",
    "family": "core_1",
-   "folder": "core_1",
-   "source": "Ironrock.PCX",
+   "folder": "Core_1",
+   "source": "fam.crf::Core_1/Ironrock.PCX",
    "family_matched": true,
    "size": [
     64,
@@ -614,14 +1025,33 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
+   ]
+  },
+  "KNIGHT": {
+   "png": "KNIGHT.png",
+   "family": "CATACOMB",
+   "folder": "CATACOMB",
+   "source": "fam.crf::CATACOMB/KNIGHT.PCX",
+   "family_matched": true,
+   "size": [
+    64,
+    128
+   ],
+   "used_by": [
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Ledge": {
    "png": "Ledge.png",
    "family": "core_1",
-   "folder": "core_1",
-   "source": "Ledge.PCX",
+   "folder": "Core_1",
+   "source": "fam.crf::Core_1/Ledge.PCX",
    "family_matched": true,
    "size": [
     64,
@@ -636,14 +1066,17 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Ledge1": {
    "png": "Ledge1.png",
    "family": "core_1",
-   "folder": "core_1",
-   "source": "Ledge1.PCX",
+   "folder": "Core_1",
+   "source": "fam.crf::Core_1/Ledge1.PCX",
    "family_matched": true,
    "size": [
     64,
@@ -658,7 +1091,42 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
+   ]
+  },
+  "LINK": {
+   "png": "LINK.png",
+   "family": "CATACOMB",
+   "folder": "CATACOMB",
+   "source": "fam.crf::CATACOMB/LINK.PCX",
+   "family_matched": true,
+   "size": [
+    128,
+    64
+   ],
+   "used_by": [
+    "09.mis",
+    "10.mis",
+    "11.mis"
+   ]
+  },
+  "LIONCUP": {
+   "png": "LIONCUP.png",
+   "family": "CATACOMB",
+   "folder": "CATACOMB",
+   "source": "fam.crf::CATACOMB/LIONCUP.PCX",
+   "family_matched": true,
+   "size": [
+    64,
+    64
+   ],
+   "used_by": [
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Obaswal7": {
@@ -680,14 +1148,17 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Odstone": {
    "png": "Odstone.png",
    "family": "core_1",
-   "folder": "core_1",
-   "source": "Odstone.PCX",
+   "folder": "Core_1",
+   "source": "fam.crf::Core_1/Odstone.PCX",
    "family_matched": true,
    "size": [
     64,
@@ -702,7 +1173,26 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
+   ]
+  },
+  "PARTY": {
+   "png": "PARTY.png",
+   "family": "CATACOMB",
+   "folder": "CATACOMB",
+   "source": "fam.crf::CATACOMB/PARTY.PCX",
+   "family_matched": true,
+   "size": [
+    128,
+    64
+   ],
+   "used_by": [
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Robblock": {
@@ -724,7 +1214,10 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Rufgry": {
@@ -746,7 +1239,10 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Sandy": {
@@ -768,14 +1264,33 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
+   ]
+  },
+  "SKULL": {
+   "png": "SKULL.png",
+   "family": "CATACOMB",
+   "folder": "CATACOMB",
+   "source": "fam.crf::CATACOMB/SKULL.PCX",
+   "family_matched": true,
+   "size": [
+    128,
+    64
+   ],
+   "used_by": [
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Stnwal3": {
    "png": "Stnwal3.png",
    "family": "core_1",
-   "folder": "core_1",
-   "source": "Stnwal3.PCX",
+   "folder": "Core_1",
+   "source": "fam.crf::Core_1/Stnwal3.PCX",
    "family_matched": true,
    "size": [
     64,
@@ -790,14 +1305,17 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Stone4": {
    "png": "Stone4.png",
    "family": "core_1",
-   "folder": "core_1",
-   "source": "Stone4.PCX",
+   "folder": "Core_1",
+   "source": "fam.crf::Core_1/Stone4.PCX",
    "family_matched": true,
    "size": [
     64,
@@ -812,14 +1330,17 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Stuc2": {
    "png": "Stuc2.png",
    "family": "core_1",
-   "folder": "core_1",
-   "source": "Stuc2.PCX",
+   "folder": "Core_1",
+   "source": "fam.crf::Core_1/Stuc2.PCX",
    "family_matched": true,
    "size": [
     64,
@@ -834,14 +1355,17 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Tile": {
    "png": "Tile.png",
    "family": "core_1",
-   "folder": "core_1",
-   "source": "Tile.PCX",
+   "folder": "Core_1",
+   "source": "fam.crf::Core_1/Tile.PCX",
    "family_matched": true,
    "size": [
     64,
@@ -856,14 +1380,17 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Trans": {
    "png": "Trans.png",
    "family": "core_1",
-   "folder": "core_1",
-   "source": "Trans.PCX",
+   "folder": "Core_1",
+   "source": "fam.crf::Core_1/Trans.PCX",
    "family_matched": true,
    "size": [
     64,
@@ -878,14 +1405,17 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Tst2": {
    "png": "Tst2.png",
    "family": "core_1",
-   "folder": "core_1",
-   "source": "Tst2.PCX",
+   "folder": "Core_1",
+   "source": "fam.crf::Core_1/Tst2.PCX",
    "family_matched": true,
    "size": [
     64,
@@ -900,7 +1430,10 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Wallcat1": {
@@ -922,7 +1455,10 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   },
   "Wdplnk2g": {
@@ -944,7 +1480,122 @@
     "05.mis",
     "06.mis",
     "07.mis",
-    "08.mis"
+    "08.mis",
+    "09.mis",
+    "10.mis",
+    "11.mis"
+   ]
+  },
+  "WING": {
+   "png": "WING.png",
+   "family": "CATACOMB",
+   "folder": "CATACOMB",
+   "source": "fam.crf::CATACOMB/WING.PCX",
+   "family_matched": true,
+   "size": [
+    128,
+    64
+   ],
+   "used_by": [
+    "09.mis",
+    "10.mis",
+    "11.mis"
+   ]
+  },
+  "XCIRC1": {
+   "png": "XCIRC1.png",
+   "family": "CATACOMB",
+   "folder": "CATACOMB",
+   "source": "fam.crf::CATACOMB/XCIRC1.PCX",
+   "family_matched": true,
+   "size": [
+    64,
+    64
+   ],
+   "used_by": [
+    "09.mis",
+    "10.mis",
+    "11.mis"
+   ]
+  },
+  "XCIRC2": {
+   "png": "XCIRC2.png",
+   "family": "CATACOMB",
+   "folder": "CATACOMB",
+   "source": "fam.crf::CATACOMB/XCIRC2.PCX",
+   "family_matched": true,
+   "size": [
+    64,
+    64
+   ],
+   "used_by": [
+    "09.mis",
+    "10.mis",
+    "11.mis"
+   ]
+  },
+  "XCIRC3": {
+   "png": "XCIRC3.png",
+   "family": "CATACOMB",
+   "folder": "CATACOMB",
+   "source": "fam.crf::CATACOMB/XCIRC3.PCX",
+   "family_matched": true,
+   "size": [
+    64,
+    64
+   ],
+   "used_by": [
+    "09.mis",
+    "10.mis",
+    "11.mis"
+   ]
+  },
+  "XCIRC4": {
+   "png": "XCIRC4.png",
+   "family": "CATACOMB",
+   "folder": "CATACOMB",
+   "source": "fam.crf::CATACOMB/XCIRC4.PCX",
+   "family_matched": true,
+   "size": [
+    64,
+    64
+   ],
+   "used_by": [
+    "09.mis",
+    "10.mis",
+    "11.mis"
+   ]
+  },
+  "XLRG": {
+   "png": "XLRG.png",
+   "family": "CATACOMB",
+   "folder": "CATACOMB",
+   "source": "fam.crf::CATACOMB/XLRG.PCX",
+   "family_matched": true,
+   "size": [
+    64,
+    64
+   ],
+   "used_by": [
+    "09.mis",
+    "10.mis",
+    "11.mis"
+   ]
+  },
+  "XSML": {
+   "png": "XSML.png",
+   "family": "CATACOMB",
+   "folder": "CATACOMB",
+   "source": "fam.crf::CATACOMB/XSML.PCX",
+   "family_matched": true,
+   "size": [
+    64,
+    64
+   ],
+   "used_by": [
+    "09.mis",
+    "10.mis",
+    "11.mis"
    ]
   }
  }

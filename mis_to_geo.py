@@ -105,8 +105,8 @@ def read_txlist(chunks, f):
 # Dark stores one texture id per brush face, in a fixed per-shape record order. We map each record
 # slot to a LOCAL face normal, then bake that normal into UE space (F @ R @ n) so the Unreal side can
 # assign the material to whichever built face matches - independent of vertex/triangle ordering.
-#   *** FACE-ORDER CONVENTION (verify visually on mission 06: walls vs floor vs ceiling) ***
-#   box slots:  0:+X 1:-X 2:+Y 3:-Y 4:+Z 5:-Z
+#   *** FACE-ORDER CONVENTION (verified vs DromEd, mission 09 brush 2) ***
+#   box slots:  0:+Y(N) 1:+X(E) 2:-Y(S) 3:-X(W) 4:+Z(Up) 5:-Z(Down)
 #   cylinder:   sides use slot 0 (side template); +Z cap = slot 4, -Z cap = slot 5
 #   wedge:      0:+X cap 1:-X cap 2:-Y leg 3:-Z leg 4:hypotenuse
 F_REFLECT=np.array([1.0,-1.0,1.0])
@@ -121,8 +121,9 @@ def _slot_for(shape, nl):
         if nl[1]<-0.3 and abs(nl[2])<0.3: return 2   # -Y leg
         if nl[2]<-0.3 and abs(nl[1])<0.3: return 3   # -Z leg
         return 4                                # hypotenuse (mixed +Y/+Z normal)
-    # box
-    return {(0,1):0,(0,-1):1,(1,1):2,(1,-1):3,(2,1):4,(2,-1):5}[(ax,sgn)]
+    # box: Dark cube face order (verified vs DromEd COORDINATE readout, 4-distinct-wall brush):
+    #   0:-X  1:-Y  2:+X  3:+Y  4:+Z  5:-Z
+    return {(0,-1):0,(1,-1):1,(0,1):2,(1,1):3,(2,1):4,(2,-1):5}[(ax,sgn)]
 
 def faces_for(b, names):
     """Return [{n:[ux,uy,uz], tex:name|None}] - one per distinct face, in UE space."""
@@ -130,13 +131,28 @@ def faces_for(b, names):
     if   b["shape"]=="cylinder": V,T=cyl_local(h,b["sides"])
     elif b["shape"]=="wedge":    V,T=wedge_local(h)
     else:                        V,T=box_local(h)
-    R=Mdark(b["H"],b["P"],b["B"]); ftex=b.get("ftex",[])
+    R=Mdark(b["H"],b["P"],b["B"])
+    ftex=b.get("ftex",[]); fscl=b.get("fscl",[]); frot=b.get("frot",[]); fuof=b.get("fuof",[]); fvof=b.get("fvof",[])
+    def texname(idx):
+        if 0<=idx<len(names):
+            nm=names[idx]
+            return None if nm.lower()=="null" else nm
+        return None
+    bdef=texname(b.get("deftex",-1))                        # brush default texture (offset 8)
     def resolve(slot):
-        if slot<0 or slot>=len(ftex): return None
-        idx=ftex[slot]
-        if idx<0 or idx>=len(names): return None            # -1 = inherit (carved surface)
-        nm=names[idx]
-        return None if nm.lower()=="null" else nm
+        if slot<0 or slot>=len(ftex): return bdef
+        return texname(ftex[slot]) or bdef                  # -1 / invalid face -> the brush default
+    def resolve_scale(slot):
+        # RAW Dark scale value (power-of-2 exponent). World tile = pixels * 2^(scale-20) feet.
+        if slot<0 or slot>=len(fscl): return 16
+        v=fscl[slot]
+        return int(v) if 0<v<=64 else 16
+    def resolve_rot(slot):
+        if slot<0 or slot>=len(frot): return 0.0
+        return (frot[slot]*360.0/65536.0)                   # 16-bit angle -> degrees
+    def resolve_off(arr,slot):
+        if slot<0 or slot>=len(arr): return 0.0
+        return arr[slot]/64.0                               # texel offset -> UV fraction (calibratable)
     groups={}
     for t in T:
         p,q,r=(np.array(V[t[i]],dtype=float) for i in range(3))
@@ -146,10 +162,23 @@ def faces_for(b, names):
         groups.setdefault(key, nl)
     faces=[]
     for nl in groups.values():
-        tex=resolve(_slot_for(b["shape"], nl))
+        slot=_slot_for(b["shape"], nl)
         nue=F_REFLECT*(R@nl); nue=nue/ (np.linalg.norm(nue) or 1.0)
-        faces.append(dict(n=[round(float(x),4) for x in nue], tex=tex))
+        faces.append(dict(n=[round(float(x),4) for x in nue], tex=resolve(slot),
+                          sc=resolve_scale(slot), rot=round(resolve_rot(slot),3),
+                          uoff=round(resolve_off(fuof,slot),4), voff=round(resolve_off(fvof,slot),4)))
     return faces
+
+# -- Dark texture inheritance ---------------------------------------------------------------------
+# A face texture id of -1 means "inherit the BRUSH'S DEFAULT texture", which Dark stores in the brush
+# header at offset 8 (verified against DromEd). faces_for() already applies that default per face, so
+# here we only need a last-resort fill for the rare brush whose default itself is invalid (e.g. 249).
+def resolve_inheritance(B, allfaces):
+    cnt=Counter(f["tex"] for fs in allfaces for f in fs if f.get("tex"))
+    global_def=cnt.most_common(1)[0][0] if cnt else None
+    for faces in allfaces:
+        for f in faces:
+            if f.get("tex") is None: f["tex"]=global_def
 
 def extract(path):
     f=open(path,"rb").read()
@@ -159,49 +188,47 @@ def extract(path):
         nm=f[p:p+12].split(b"\x00")[0].decode("latin1"); off,ln=struct.unpack_from("<II",f,p+12); chunks[nm]=(off,ln); p+=20
     names=read_txlist(chunks, f)
     o,l=chunks["BRLIST"]; d=f[o+24:o+24+l]; N=len(d)
-    def hdrok(p):
-        if p+76>N: return False
-        bid,tm=struct.unpack_from("<hh",d,p)
-        if not (1<=bid<=4000 and 0<=tm<=5000): return False
-        v=struct.unpack_from("<6f",d,p+12)
-        if any((not math.isfinite(x) or abs(x)>1000) for x in v[:3]): return False
-        if any((not math.isfinite(x) or x<=0.05 or x>1000) for x in v[3:]): return False
-        return True
-    def fc(p,nf):
-        if not (5<=nf<=32): return False
-        for k in range(nf):
-            q=p+76+k*10
-            if q+10>N or not (-1<=struct.unpack_from("<h",d,q)[0]<200): return False
-        return True
-    cands=[]
-    for p in range(0,N-76):
-        if hdrok(p):
-            nf=d[p+67]
-            if fc(p,nf): cands.append((p,76+nf*10,d[p+10],nf))
-    cands.sort(); acc=[]; end=-1
-    for p,rl,op,nf in cands:
-        if p>=end: acc.append((p,op,nf)); end=p+rl
+    # BRLIST is a SEQUENTIAL list of brush records (76-byte header + trailing data). Terrain brushes
+    # (media/op 0-8) carry a face array -> record = 76 + nfaces*10. Non-terrain brushes (objects,
+    # lights, rooms, flow, area; media 255 etc.) have NO faces -> flat 76 bytes; their byte-67 must be
+    # ignored. Walking with this rule lands exactly on the chunk end and captures EVERY brush.
     def dg(a): return a*360.0/65536.0
-    out=[]
-    for p,op,nf in acc:
-        if op not in KEEP_OPS: continue
-        bid,tm=struct.unpack_from("<hh",d,p)
-        x,y,z,sx,sy,sz=struct.unpack_from("<6f",d,p+12)
-        ax,ay,az=struct.unpack_from("<3H",d,p+36)
-        ftex=[struct.unpack_from("<h",d,p+76+k*10)[0] for k in range(nf)]   # texture id per face (-1=inherit)
-        shape,sides=classify(nf)
-        out.append(dict(id=bid,time=tm,op=int(op),shape=shape,sides=sides,
-                        pos=(x,y,z),half=(sx,sy,sz),H=dg(az),P=dg(ay),B=dg(ax),ftex=ftex))
+    out=[]; p=0
+    while p+76<=N:
+        op=d[p+10]; nf=d[p+67]
+        terrain = (op<=8) and (4<=nf<=64)         # terrain fill op + a plausible face count
+        if not terrain:
+            p+=76; continue                        # non-terrain brush -> skip, fixed 76 bytes
+        if p+76+nf*10>N: break                     # truncated / misaligned safety
+        if op in KEEP_OPS:
+            bid,tm=struct.unpack_from("<hh",d,p)
+            deftex=struct.unpack_from("<h",d,p+8)[0]         # brush's DEFAULT texture (what -1 faces inherit)
+            x,y,z,sx,sy,sz=struct.unpack_from("<6f",d,p+12)
+            ax,ay,az=struct.unpack_from("<3H",d,p+36)
+            q0=p+76
+            ftex=[struct.unpack_from("<h",d,q0+k*10)[0]   for k in range(nf)]   # +0 texture id (-1=inherit)
+            frot=[struct.unpack_from("<H",d,q0+k*10+2)[0] for k in range(nf)]   # +2 rotation (16-bit angle)
+            fscl=[struct.unpack_from("<H",d,q0+k*10+4)[0] for k in range(nf)]   # +4 scale (16 = 1x)
+            fuof=[struct.unpack_from("<H",d,q0+k*10+6)[0] for k in range(nf)]   # +6 U offset
+            fvof=[struct.unpack_from("<H",d,q0+k*10+8)[0] for k in range(nf)]   # +8 V offset
+            shape,sides=classify(nf)
+            if all(math.isfinite(v) for v in (x,y,z,sx,sy,sz)) and min(sx,sy,sz)>0.0:
+                out.append(dict(id=bid,time=tm,op=int(op),shape=shape,sides=sides,deftex=deftex,
+                                pos=(x,y,z),half=(sx,sy,sz),H=dg(az),P=dg(ay),B=dg(ax),
+                                ftex=ftex,fscl=fscl,frot=frot,fuof=fuof,fvof=fvof))
+        p+=76+nf*10
     out.sort(key=lambda b:b["time"])
     return out, names
 
 def convert(inp, outp):
     B,names=extract(inp)
+    allfaces=[faces_for(b,names) for b in B]
+    resolve_inheritance(B, allfaces)          # Dark rule: -1 faces inherit the solid they carve into
     brushes=[]; allv=[]
-    for b in B:
+    for b,faces in zip(B,allfaces):
         V,T=bake(b)
         brushes.append(dict(id=b["id"],time=b["time"],op=b["op"],shape=b["shape"],
-                            verts=V,tris=T,faces=faces_for(b,names)))
+                            verts=V,tris=T,faces=faces))
         allv+=V
     if not allv: raise ValueError("no terrain brushes found")
     # world solid box (encloses everything) as brush 0

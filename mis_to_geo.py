@@ -111,11 +111,21 @@ def read_txlist(chunks, f):
 #   wedge:      0:+X cap 1:-X cap 2:-Y leg 3:-Z leg 4:hypotenuse
 F_REFLECT=np.array([1.0,-1.0,1.0])
 
+def _cyl_slot(nl, sides):
+    # Dark cylinder record order (verified vs DromEd): each SIDE has its own texture.
+    #   side k (record slot k) is centered at angle pi/2 + (k+0.5)*(2pi/sides) in local X-Y.
+    #   top cap (+Z) = slot `sides`;  bottom cap (-Z) = slot `sides+1`.
+    if abs(nl[2])>0.9:
+        return sides if nl[2]>0 else sides+1
+    step=2*math.pi/sides
+    k=round((math.atan2(nl[1],nl[0])-math.pi/2)/step - 0.5)
+    return int(k % sides)
+
 def _slot_for(shape, nl):
     ax=int(np.argmax(np.abs(nl))); sgn=1 if nl[ax]>0 else -1
     if shape=="cylinder":
-        if ax==2: return 4 if sgn>0 else 5     # cap
-        return 0                                # any side -> side template slot
+        if ax==2: return 4 if sgn>0 else 5     # (unused: cylinders routed to _cyl_slot in faces_for)
+        return 0
     if shape=="wedge":
         if ax==0: return 0 if sgn>0 else 1      # +X / -X caps
         if nl[1]<-0.3 and abs(nl[2])<0.3: return 2   # -Y leg
@@ -151,8 +161,8 @@ def faces_for(b, names):
         if slot<0 or slot>=len(frot): return 0.0
         return (frot[slot]*360.0/65536.0)                   # 16-bit angle -> degrees
     def resolve_off(arr,slot):
-        if slot<0 or slot>=len(arr): return 0.0
-        return arr[slot]/64.0                               # texel offset -> UV fraction (calibratable)
+        if slot<0 or slot>=len(arr): return 0
+        return int(arr[slot])                               # RAW texel offset; /texture_px in UE -> UV fraction
     groups={}
     for t in T:
         p,q,r=(np.array(V[t[i]],dtype=float) for i in range(3))
@@ -162,11 +172,12 @@ def faces_for(b, names):
         groups.setdefault(key, nl)
     faces=[]
     for nl in groups.values():
-        slot=_slot_for(b["shape"], nl)
+        if b["shape"]=="cylinder": slot=_cyl_slot(nl, int(b.get("sides",8)))
+        else:                      slot=_slot_for(b["shape"], nl)
         nue=F_REFLECT*(R@nl); nue=nue/ (np.linalg.norm(nue) or 1.0)
         faces.append(dict(n=[round(float(x),4) for x in nue], tex=resolve(slot),
                           sc=resolve_scale(slot), rot=round(resolve_rot(slot),3),
-                          uoff=round(resolve_off(fuof,slot),4), voff=round(resolve_off(fvof,slot),4)))
+                          uoff=resolve_off(fuof,slot), voff=resolve_off(fvof,slot)))
     return faces
 
 # -- Dark texture inheritance ---------------------------------------------------------------------

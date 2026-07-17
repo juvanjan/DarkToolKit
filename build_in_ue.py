@@ -37,6 +37,8 @@ UV_TILE_CM  = 64.0        # world-space texture tile size (one texture repeat pe
 RES_SCALING = False       # per-texture material tiling (superseded by per-face UV formula below)
 TEXEL_REF_PX = 64.0       # fallback texture width if a texture's size is unknown
 FEET_CM = 30.48           # Dark world tile (feet) = pixels * 2^(scale-20); this converts feet -> cm
+TEX_SHIFT_U = 0.5         # our planar projection sits half a tile off in U vs Dark; 0.5 corrects it
+TEX_SHIFT_V = 0.0         # V needs no shift
 BUILD_TEXTURES = True     # assign real Dark textures (needs the *_geo.json with per-face "faces" data)
 TEX_DIR   = r"C:/Nex/DarkSimProject/DarkSimToolkit/textures"   # folder with the PNGs + textures_manifest.json
 MAT_ROOT  = r"/Game/Mission/Materials"                     # where imported textures + materials are created
@@ -594,20 +596,24 @@ def apply_face_uvs(mesh, b):
         sc=int(f.get("sc",16)); res=_face_res(f.get("tex"))
         tile=res*(2.0**(sc-20))*FEET_CM                 # world tile in cm
         rot=math.radians(float(f.get("rot",0.0) or 0.0))+math.pi   # base was 180 deg off (verified vs DromEd)
-        uoff=float(f.get("uoff",0.0) or 0.0); voff=float(f.get("voff",0.0) or 0.0)
+        uoff=float(f.get("uoff",0.0) or 0.0)/res            # texels -> tile fraction
+        voff=-float(f.get("voff",0.0) or 0.0)/res           # V offset runs opposite to U (verified vs DromEd)
         sel=_select_by_normal(mesh,nv)
         if sel is None: _PERFACE_UV[0]=False; unreal.log_warning("  per-face UV: no normal selection; using global box UV"); return
-        # CONSISTENT in-plane axes: walls -> V points up (+Z), U horizontal; floor/ceiling -> fixed X/Y.
+        # CONSISTENT in-plane axes; the frame [U,V,n] MUST be right-handed (U x V = n) or the projection
+        # collapses (that was the black/solid bottom face).
         if abs(n[2])>0.99:                               # top / bottom
-            u0=[1.0,0.0,0.0]; v0=[0.0,1.0,0.0]
-        else:                                            # walls (normal horizontal)
+            u0=[1.0,0.0,0.0]; v0=[0.0, 1.0 if n[2]>0 else -1.0, 0.0]   # bottom flips V -> right-handed
+        else:                                            # walls: V up (+Z), U horizontal
             u0=_norm(_cross([0.0,0.0,1.0], n)); v0=_norm(_cross(n,u0))
         c=math.cos(rot); s=math.sin(rot)
         U=[c*u0[i]+s*v0[i] for i in range(3)]
         V=[-s*u0[i]+c*v0[i] for i in range(3)]
         t=unreal.Transform()
         t.set_editor_property("rotation", _quat_from_axes([U,V,list(n)]))
-        off=[(uoff*tile)*U[i]+(voff*tile)*V[i] for i in range(3)]   # shift projection origin by the offset
+        # projection origin at world 0 + record offset + a global half-tile correction (Dark vs UE)
+        uu=uoff+TEX_SHIFT_U; vv=voff+TEX_SHIFT_V
+        off=[(uu*tile)*U[i]+(vv*tile)*V[i] for i in range(3)]
         t.set_editor_property("translation", unreal.Vector(off[0],off[1],off[2]))
         t.set_editor_property("scale3d", unreal.Vector(tile,tile,1.0))
         ok=False; err=None

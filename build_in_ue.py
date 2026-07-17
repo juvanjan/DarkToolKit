@@ -635,6 +635,7 @@ def apply_face_uvs(mesh, b):
         # projection origin at world 0 + record offset + a global half-tile correction (Dark vs UE)
         su=-1.0 if MIRROR_TEX_U else 1.0                 # mirror U (level is Y-reflected)
         if f.get("solid"): su=-su                         # solid (union) faces flip opposite to air carves
+        if f.get("cylside"): su=-su                        # curved side wraps the opposite way vs the caps
         uu=(uoff+TEX_SHIFT_U)*su; vv=voff+TEX_SHIFT_V
         off=[(uu*tile)*U[i]+(vv*tile)*V[i] for i in range(3)]
         t.set_editor_property("translation", unreal.Vector(off[0],off[1],off[2]))
@@ -708,13 +709,23 @@ def _face_uv_transform(f):
     tile=res*(2.0**(sc-20))*FEET_CM
     rot=math.radians(float(f.get("rot",0.0) or 0.0))+math.pi
     uoff=float(f.get("uoff",0.0) or 0.0)/res; voff=-float(f.get("voff",0.0) or 0.0)/res
-    if abs(n[2])>0.99: u0=[1.0,0.0,0.0]; v0=[0.0, 1.0 if n[2]>0 else -1.0, 0.0]
-    else:              u0=_norm(_cross([0.0,0.0,1.0], n)); v0=_norm(_cross(n,u0))
+    projn=list(n)
+    if abs(n[2])>0.99:                                # cap: project straight down the Z normal
+        u0=[1.0,0.0,0.0]; v0=[0.0, 1.0 if n[2]>0 else -1.0, 0.0]
+    elif f.get("cylside"):                            # cylinder side: Dark projects from the DOMINANT world
+        # axis (X or Y), not perpendicular -> tilted facets stretch horizontally by 1/cos(angle-to-axis).
+        if abs(n[0])>=abs(n[1]):
+            sx=1.0 if n[0]>=0 else -1.0; projn=[sx,0.0,0.0]; u0=[0.0,sx,0.0]; v0=[0.0,0.0,1.0]
+        else:
+            sy=1.0 if n[1]>=0 else -1.0; projn=[0.0,sy,0.0]; u0=[-sy,0.0,0.0]; v0=[0.0,0.0,1.0]
+    else:                                             # box wall: project perpendicular to the face
+        u0=_norm(_cross([0.0,0.0,1.0], n)); v0=_norm(_cross(n,u0))
     c=math.cos(rot); s=math.sin(rot)
     U=[c*u0[i]+s*v0[i] for i in range(3)]; V=[-s*u0[i]+c*v0[i] for i in range(3)]
-    t=unreal.Transform(); t.set_editor_property("rotation", _quat_from_axes([U,V,list(n)]))
+    t=unreal.Transform(); t.set_editor_property("rotation", _quat_from_axes([U,V,projn]))
     su=-1.0 if MIRROR_TEX_U else 1.0                 # negative U scale mirrors the texture horizontally
     if f.get("solid"): su=-su                         # solid (union) faces face the opposite way -> flip back
+    if f.get("cylside"): su=-su                        # curved side wraps the opposite way vs the caps
     uu=(uoff+TEX_SHIFT_U)*su; vv=voff+TEX_SHIFT_V     # flip the U offset phase to match the flipped axis
     off=[(uu*tile)*U[i]+(vv*tile)*V[i] for i in range(3)]
     t.set_editor_property("translation", unreal.Vector(off[0],off[1],off[2]))

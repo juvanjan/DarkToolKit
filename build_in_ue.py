@@ -26,7 +26,7 @@
 
 import unreal, json, math
 
-GEO_PATH    = r"C:\Nex\DarkSimProject\DarkSimToolkit\test_missions\09_geo.json"   # <-- SET (the *_geo.json)
+GEO_PATH    = r"C:\Nex\DarkSimProject\DarkSimToolkit\test_missions\10_geo.json"   # <-- SET (the *_geo.json)
 ASSET_PATH  = r"/Game/Mission/SM_Mission"
 BUILD_WATER = True        # also bake the water volume as a separate static mesh (SM_..._Water)
 BUILD_COLLISION = True    # give the mesh collision (complex-as-simple: the triangles ARE the collision)
@@ -37,8 +37,10 @@ UV_TILE_CM  = 64.0        # world-space texture tile size (one texture repeat pe
 RES_SCALING = False       # per-texture material tiling (superseded by per-face UV formula below)
 TEXEL_REF_PX = 64.0       # fallback texture width if a texture's size is unknown
 FEET_CM = 30.48           # Dark world tile (feet) = pixels * 2^(scale-20); this converts feet -> cm
-TEX_SHIFT_U = 0.5         # our planar projection sits half a tile off in U vs Dark; 0.5 corrects it
+TEX_SHIFT_U = 0.0         # our planar projection sits half a tile off in U vs Dark; 0.5 corrects it
 TEX_SHIFT_V = 0.0         # V needs no shift
+MIRROR_TEX_U = True       # level is Y-reflected -> textures come out horizontally mirrored (a left arrow
+                          #   reads as a right arrow). Flip the U axis of every face's UV to undo it.
 BUILD_TEXTURES = True     # assign real Dark textures (needs the *_geo.json with per-face "faces" data)
 TEX_DIR   = r"C:/Nex/DarkSimProject/DarkSimToolkit/textures"   # folder with the PNGs + textures_manifest.json
 MAT_ROOT  = r"/Game/Mission/Materials"                     # where imported textures + materials are created
@@ -371,6 +373,12 @@ GMAT_SEL,_SETMATSEL = _find(["set_material_id_for_mesh_selection","set_material_
 GUV_BOX, _UVBOX = _find(["set_mesh_u_vs_from_box_projection"],"u_vs","box","projection")
 GUV_PLN, _UVPLN = _find(["set_mesh_u_vs_from_planar_projection"],"u_vs","planar")
 GMAT_EN,_ENMATID = _find(["enable_material_i_ds","enable_material_ids"],"enable","material")
+# final-mesh retag (coincident-face override: latest brush wins, like Dark)
+GTRIIDS,_ALLTRI = _find(["get_all_triangle_i_ds"],"all","triangle","id")
+GTRIPOS,_TRIPOS = _find(["get_triangle_positions"],"triangle","positions")
+GSEL_IDX,_SELIDX = _find(["convert_index_list_to_mesh_selection","convert_index_array_to_mesh_selection"],"index","selection")
+GSEL_BOX,_SELBOX = _find(["select_mesh_elements_in_box"],"select","box")   # geometric per-face selection (crash-safe)
+FINAL_RETAG = True        # after boolean, re-assign each face the LATEST brush covering it (Dark override)
 _PERFACE_UV=[BUILD_TEXTURES]   # per-face planar UVs at exact Dark scale (px * 2^(sc-20) ft per tile)
 _PERFACE_LOGGED=[False]
 
@@ -569,17 +577,30 @@ def _pick_selection(r):
         return r[-1]
     return r
 
-def _select_by_normal(mesh, nv):
-    for call in ((mesh,nv,15.0),(mesh,nv,15.0,True)):
+def _select_by_normal(mesh, nv, angle=15.0):
+    for call in ((mesh,nv,angle),(mesh,nv,angle,True)):
         try:
             r=getattr(GSEL_N,_SELN)(*call); sel=_pick_selection(r)
             if sel is not None and not isinstance(sel, unreal.DynamicMesh): return sel
         except Exception: continue
     return None
 
+# Dark computes texture SCALE from each texture's *logical* (original) resolution, which is NOT
+# necessarily the file resolution. HD texture packs replace a stock 256px texture with a 512px image
+# but Dark still scales it as 256 -> our tile came out 2x too big. Keep the 512 file for DISPLAY, but
+# feed the logical size into the tile formula. Custom textures (aaaa/bbbb/cccc) have matching logical
+# and file sizes, so they need no override and stay correct.
+#   Priority: this manual override map -> manifest "scale_px" (extractor: fam.crf original size)
+#   -> manifest "size" -> TEXEL_REF_PX default.
+SCALE_PX_OVERRIDE = {}         # texture name (lowercase) -> logical resolution; empty (extractor drives it
+                               # via manifest scale_px). Manual escape hatch if any texture ever mismaps.
+
 def _face_res(tex):
     if not tex: return TEXEL_REF_PX
+    key=tex.lower()
+    if key in SCALE_PX_OVERRIDE: return SCALE_PX_OVERRIDE[key]
     e=_MANIFEST.get(tex) or _MANIFEST_LC.get(tex.lower())
+    if e and e.get("scale_px"): return float(e["scale_px"])   # fam.crf original size (HD-override aware)
     if e and e.get("size"): return float(e["size"][0])
     return TEXEL_REF_PX
 
@@ -612,10 +633,12 @@ def apply_face_uvs(mesh, b):
         t=unreal.Transform()
         t.set_editor_property("rotation", _quat_from_axes([U,V,list(n)]))
         # projection origin at world 0 + record offset + a global half-tile correction (Dark vs UE)
-        uu=uoff+TEX_SHIFT_U; vv=voff+TEX_SHIFT_V
+        su=-1.0 if MIRROR_TEX_U else 1.0                 # mirror U (level is Y-reflected)
+        if f.get("solid"): su=-su                         # solid (union) faces flip opposite to air carves
+        uu=(uoff+TEX_SHIFT_U)*su; vv=voff+TEX_SHIFT_V
         off=[(uu*tile)*U[i]+(vv*tile)*V[i] for i in range(3)]
         t.set_editor_property("translation", unreal.Vector(off[0],off[1],off[2]))
-        t.set_editor_property("scale3d", unreal.Vector(tile,tile,1.0))
+        t.set_editor_property("scale3d", unreal.Vector(su*tile,tile,1.0))
         ok=False; err=None
         for call in ((mesh,0,t,sel),(mesh,0,t,sel,True),(mesh,sel,0,t)):
             try: getattr(GUV_PLN,_UVPLN)(*call); ok=True; break
@@ -626,6 +649,251 @@ def apply_face_uvs(mesh, b):
         if not _PERFACE_LOGGED[0]:
             _PERFACE_LOGGED[0]=True
             unreal.log("  per-face UV OK (e.g. %s sc=%d -> tile=%.0fcm)"%(f.get("tex"),sc,tile))
+
+_CYLUV_LOGGED=[False]
+def apply_cyl_face_uvs(mesh, b):
+    """Cylinder sides only. Selecting UE facets by the GEO normal fails because UE's append_cylinder is
+    phase-shifted from the geo (each geo normal sits between two UE facets -> the 15deg cone grabs a
+    neighbor and its wrong tile). Instead we read the UE mesh's OWN facet normals and select each facet
+    by ITS OWN normal (unique on a lone cylinder primitive -> clean isolation), then project with the
+    matched geo face's tile. Uses only crash-safe calls (tri normal + select-by-normal + planar)."""
+    if not _PERFACE_UV[0] or not (GSEL_N and GQ_NORM and GTRIPOS): return
+    sides=[f for f in (b.get("faces") or []) if not f.get("cap") and f.get("tex")]
+    if not sides: return
+    tc=tri_count(mesh)
+    if not tc or tc<0: return
+    # group UE side triangles by rounded normal -> one bucket per facet
+    buckets={}
+    for tid in range(tc):
+        nr=_tri_normal(mesh,tid)
+        if nr is None or abs(nr.z)>0.9: continue                 # skip caps
+        key=(round(nr.x,2),round(nr.y,2),round(nr.z,2))
+        buckets.setdefault(key,[nr,0])[1]+=1
+    nsides=max(len(sides), len(buckets), 3)
+    ang=min(15.0, 0.4*(360.0/nsides))                            # < half a facet -> isolate one facet
+    okc=0
+    for key,(nr,cnt) in buckets.items():
+        nvec=[nr.x,nr.y,nr.z]
+        best=max(sides, key=lambda f: _dot(nvec, f["n"]))        # geo facet whose normal is closest
+        if _dot(nvec,best["n"])<0.5: continue                    # no plausible match
+        sel=_select_by_normal(mesh, unreal.Vector(nr.x,nr.y,nr.z), ang)
+        if sel is not None and _planar_uv(mesh, sel, _face_uv_transform(best)): okc+=1
+    if not _CYLUV_LOGGED[0]:
+        _CYLUV_LOGGED[0]=True
+        unreal.log("  cylinder per-facet UV: %d/%d facets projected by own-normal"%(okc,len(buckets)))
+
+# ---------------------------------------------------------------- final-mesh retag (Dark override)
+def _canon(n,d):
+    ax=0
+    if abs(n[1])>abs(n[ax]): ax=1
+    if abs(n[2])>abs(n[ax]): ax=2
+    if n[ax]<0: return (-n[0],-n[1],-n[2]), -d
+    return (n[0],n[1],n[2]), d
+
+def _pt_in_poly(c, poly, n, tol=1.5):
+    ref=[1.0,0.0,0.0] if abs(n[0])<0.9 else [0.0,1.0,0.0]
+    u=_norm(_cross(ref,n)); v=_norm(_cross(n,u))
+    pts=[(_dot(p,u),_dot(p,v)) for p in poly]
+    cx=_dot(c,u); cy=_dot(c,v)
+    pos=neg=False; m=len(pts)
+    for i in range(m):
+        x1,y1=pts[i]; x2,y2=pts[(i+1)%m]
+        cr=(x2-x1)*(cy-y1)-(y2-y1)*(cx-x1)
+        if cr> tol: pos=True
+        elif cr<-tol: neg=True
+    return not (pos and neg)
+
+def _face_uv_transform(f):
+    n=f["n"]; sc=int(f.get("sc",16)); res=_face_res(f.get("tex"))
+    tile=res*(2.0**(sc-20))*FEET_CM
+    rot=math.radians(float(f.get("rot",0.0) or 0.0))+math.pi
+    uoff=float(f.get("uoff",0.0) or 0.0)/res; voff=-float(f.get("voff",0.0) or 0.0)/res
+    if abs(n[2])>0.99: u0=[1.0,0.0,0.0]; v0=[0.0, 1.0 if n[2]>0 else -1.0, 0.0]
+    else:              u0=_norm(_cross([0.0,0.0,1.0], n)); v0=_norm(_cross(n,u0))
+    c=math.cos(rot); s=math.sin(rot)
+    U=[c*u0[i]+s*v0[i] for i in range(3)]; V=[-s*u0[i]+c*v0[i] for i in range(3)]
+    t=unreal.Transform(); t.set_editor_property("rotation", _quat_from_axes([U,V,list(n)]))
+    su=-1.0 if MIRROR_TEX_U else 1.0                 # negative U scale mirrors the texture horizontally
+    if f.get("solid"): su=-su                         # solid (union) faces face the opposite way -> flip back
+    uu=(uoff+TEX_SHIFT_U)*su; vv=voff+TEX_SHIFT_V     # flip the U offset phase to match the flipped axis
+    off=[(uu*tile)*U[i]+(vv*tile)*V[i] for i in range(3)]
+    t.set_editor_property("translation", unreal.Vector(off[0],off[1],off[2]))
+    t.set_editor_property("scale3d", unreal.Vector(su*tile,tile,1.0)); return t
+
+def _planar_uv(mesh, sel, t):
+    for call in ((mesh,0,t,sel),(mesh,0,t,sel,True),(mesh,sel,0,t)):
+        try: getattr(GUV_PLN,_UVPLN)(*call); return True
+        except Exception: continue
+    return False
+
+def _tri_centroid(mesh,tid):
+    try:
+        r=getattr(GTRIPOS,_TRIPOS)(mesh,tid)
+        vs=[x for x in r if isinstance(x,unreal.Vector)] if isinstance(r,(tuple,list)) else []
+        if len(vs)<3: return None
+        return unreal.Vector((vs[0].x+vs[1].x+vs[2].x)/3.0,(vs[0].y+vs[1].y+vs[2].y)/3.0,(vs[0].z+vs[1].z+vs[2].z)/3.0)
+    except Exception: return None
+
+_IDXTYPE_CACHE=[None]
+def _tri_index_type():
+    """EGeometryScriptIndexType.Triangle - the enum convert_index_*_to_mesh_selection wants (NOT
+    MeshSelectionType). Names vary across UE builds, so probe candidates once and cache."""
+    if _IDXTYPE_CACHE[0] is not None: return _IDXTYPE_CACHE[0]
+    for en in ("EGeometryScriptIndexType","GeometryScriptIndexType"):
+        e=getattr(unreal,en,None)
+        if e is None: continue
+        for mem in ("TRIANGLE","TRIANGLE_ID","TRIANGLES","TRIANGLE_INDEX","POLYGON"):
+            v=getattr(e,mem,None)
+            if v is not None: _IDXTYPE_CACHE[0]=v; return v
+    _IDXTYPE_CACHE[0]=False; return False
+
+def _int_array(tids):
+    try:
+        a=unreal.Array(int)
+        for t in tids: a.append(int(t))
+        return a
+    except Exception:
+        return [int(t) for t in tids]
+
+USE_INDEX_SELECTION = False    # convert_index_*_to_mesh_selection ACCESS-VIOLATES (crashes the editor)
+                               # in this UE build; keep it off. Cylinder UVs handled another way below.
+_SELDBG=[0]
+def _selection_from_ids(mesh, tids):
+    if not GSEL_IDX or not USE_INDEX_SELECTION: return None
+    it=_tri_index_type(); arr=_int_array(tids); fn=getattr(GSEL_IDX,_SELIDX)
+    # UE Python requires selection_type as a KEYWORD arg (positional pos-3 is rejected).
+    attempts=[]
+    if it is not False:
+        attempts += [
+            (lambda: fn(mesh, arr, selection_type=it)),
+            (lambda: fn(mesh, index_list=arr, selection_type=it)),
+            (lambda: fn(mesh, arr, index_type=it)),
+        ]
+    attempts += [ (lambda: fn(mesh, arr)) ]
+    last=None
+    for a in attempts:
+        try:
+            r=a(); sel=r[-1] if isinstance(r,(tuple,list)) else r
+            if sel is not None: return sel
+        except Exception as e:
+            last=e; continue
+    if _SELDBG[0]<1 and last is not None:
+        _SELDBG[0]=1
+        unreal.log_warning("  _selection_from_ids failed: fn=%s idxtype=%s arrtype=%s err=%s"
+                           %(_SELIDX, it, type(arr).__name__, last))
+    return None
+
+# --- geometric per-face selection (Option A): a thin oriented box around the face polygon ----------
+_MSELTYPE_CACHE=[None]
+def _mesh_sel_type():
+    if _MSELTYPE_CACHE[0] is not None: return _MSELTYPE_CACHE[0]
+    for en in ("EGeometryScriptMeshSelectionType","GeometryScriptMeshSelectionType"):
+        e=getattr(unreal,en,None)
+        if e is None: continue
+        for mem in ("TRIANGLES","TRIANGLE","POLYGONS","FACES"):
+            v=getattr(e,mem,None)
+            if v is not None: _MSELTYPE_CACHE[0]=v; return v
+    _MSELTYPE_CACHE[0]=False; return False
+
+USE_BOX_SELECTION = True       # RETRY: the two crashers (convert_index, select_in_box) both took the
+                               # selection_type ENUM; select_by_normal (no enum) never crashed. So we
+                               # retry box selection with NO enum + a VALID unreal.Box. If it still
+                               # crashes, set this False to return to the stable (cylinder-imperfect) build.
+def _make_box(bmin,bmax):
+    """A VALID unreal.Box - an invalid one makes select_mesh_elements_in_box write out of bounds (crash)."""
+    for mk in (lambda: unreal.Box(min=bmin,max=bmax,is_valid=True),
+               lambda: unreal.Box(min=bmin,max=bmax)):
+        try:
+            b=mk()
+            try: b.set_editor_property("is_valid", True)
+            except Exception: pass
+            return b
+        except Exception: continue
+    try:
+        b=unreal.Box(); b.set_editor_property("min",bmin); b.set_editor_property("max",bmax)
+        b.set_editor_property("is_valid",True); return b
+    except Exception: return None
+
+_BOXDBG=[0]
+def _selection_from_box(mesh, f):
+    """Select ONE face's triangles by its WORLD-SPACE axis-aligned bounding box (select_mesh_elements_in_box
+    has NO transform param - the box is a world FBox). A tight AABB + all-3-points-in-box isolates the
+    face by POSITION (handles coincident faces, cylinder facets, and multiple cylinders)."""
+    if not GSEL_BOX or not USE_BOX_SELECTION: return None
+    poly=f.get("poly") or []
+    if len(poly)<3: return None
+    try:
+        xs=[p[0] for p in poly]; ys=[p[1] for p in poly]; zs=[p[2] for p in poly]
+        M=1.5                                           # tight margin (cm); keep neighbors out
+        box=_make_box(unreal.Vector(min(xs)-M,min(ys)-M,min(zs)-M),
+                      unreal.Vector(max(xs)+M,max(ys)+M,max(zs)+M))
+        if box is None: return None
+        fn=getattr(GSEL_BOX,_SELBOX); st=_mesh_sel_type()
+        r=fn(mesh, box, selection_type=st) if st is not False else fn(mesh, box)   # all 3 tri points in box
+        sel=r[-1] if isinstance(r,(tuple,list)) else r
+        return sel
+    except Exception as e:
+        if _BOXDBG[0]<1: _BOXDBG[0]=1; unreal.log_warning("  _selection_from_box error: %s"%e)
+    return None
+
+def retag_final(mesh, body):
+    """Assign each result triangle the LATEST brush face that lies on its plane and covers it
+       (Dark's 'later brush wins' override; also makes texturing robust to the boolean).
+
+       Matching is POSITION-based: geo faces are bucketed spatially by the cells their polygon
+       overlaps, and each result triangle is resolved by its world-space centroid falling inside
+       a coplanar face polygon. This is robust to the UE-built cylinder having a different vertex
+       phase than the geo cylinder (the old normal-bucketed match failed there, shifting the
+       cylinder side textures by +6 facets)."""
+    if not (GMAT_TRI and GQ_NORM and GTRIPOS): unreal.log_warning("  retag: missing tri funcs; skipped"); return
+    CELL=128.0
+    def _cell(p): return (int(math.floor(p[0]/CELL)),int(math.floor(p[1]/CELL)),int(math.floor(p[2]/CELL)))
+    cells={}; big=[]
+    for b in body:
+        t=b.get("time",0)
+        for f in b.get("faces",[]):
+            if not f.get("tex") or not f.get("poly"): continue
+            poly=f["poly"]
+            xs=[p[0] for p in poly]; ys=[p[1] for p in poly]; zs=[p[2] for p in poly]
+            lo=_cell([min(xs),min(ys),min(zs)]); hi=_cell([max(xs),max(ys),max(zs)])
+            span=(hi[0]-lo[0]+1)*(hi[1]-lo[1]+1)*(hi[2]-lo[2]+1)
+            entry=(t,f)
+            if span>512:
+                big.append(entry)
+            else:
+                for cx in range(lo[0],hi[0]+1):
+                    for cy in range(lo[1],hi[1]+1):
+                        for cz in range(lo[2],hi[2]+1):
+                            cells.setdefault((cx,cy,cz),[]).append(entry)
+    tc=tri_count(mesh)
+    if not tc or tc<0: unreal.log_warning("  retag: no triangle count"); return
+    _enable_matids(mesh)
+    groups={}; matched=0
+    for tid in range(tc):
+        nr=_tri_normal(mesh,tid); c=_tri_centroid(mesh,tid)
+        if nr is None or c is None: continue
+        nrl=[nr.x,nr.y,nr.z]; cl=[c.x,c.y,c.z]
+        best=None; bestt=-1; bestpd=1e9
+        for (t,f) in cells.get(_cell(cl),[])+big:
+            fn=f["n"]
+            if abs(_dot(nrl,fn))<0.5: continue                 # not roughly coplanar orientation
+            pd=abs(_dot(cl,fn)-f["d"])
+            if pd>15.0: continue                               # not on the face's plane
+            if not _pt_in_poly(cl,f["poly"],fn): continue      # centroid not covered by the polygon
+            if t>bestt or (t==bestt and pd<bestpd): bestt=t; bestpd=pd; best=f
+        if best is not None:
+            _set_matid_tri(mesh,tid,material_id(best["tex"]))
+            groups.setdefault(id(best),(best,[]))[1].append(tid); matched+=1
+    unreal.log("  retag: %d/%d tris matched to %d faces"%(matched,tc,len(groups)))
+    if GUV_PLN and (GSEL_IDX or GSEL_BOX):
+        okc=0; nosel=0; noproj=0
+        for fid,(f,tids) in groups.items():
+            sel=_selection_from_ids(mesh,tids) or _selection_from_box(mesh,f)   # box = crash-safe path
+            if sel is None: nosel+=1; continue
+            if _planar_uv(mesh,sel,_face_uv_transform(f)): okc+=1
+            else: noproj+=1
+        unreal.log("  retag UV: %d/%d faces projected (selection-failed=%d, projection-failed=%d)"
+                   %(okc,len(groups),nosel,noproj))
 
 def assign_materials(sm):
     if not _TEX_OK[0]: return
@@ -644,6 +912,8 @@ def mk(b):
     if _TEX_OK[0]:
         tag_materials(m,b)
         apply_face_uvs(m,b)          # per-face UVs at Dark scale (before boolean, so they carry through)
+        if b.get("shape")=="cylinder":
+            apply_cyl_face_uvs(m,b)  # overwrite side UVs by each UE facet's OWN normal (phase-robust)
     return m
 
 def bake(mesh, path):
@@ -742,11 +1012,13 @@ def run():
     if first_err[0]: unreal.log_error("First boolean error: %s"%first_err[0])
 
     ensure_uv_normals(result)
-    if _TEX_OK[0]:
+    if _TEX_OK[0] and FINAL_RETAG:
+        retag_final(result, body)     # Dark override: latest brush face wins per result triangle
+    elif _TEX_OK[0]:
         if _PERFACE_UV[0]:
             unreal.log("UVs: per-face Dark scale  (tile ft = px * 2^(scale-20))")
         else:
-            apply_world_uvs(result)   # fallback: uniform box projection if per-face UV was unavailable
+            apply_world_uvs(result)
             unreal.log("UVs: world-scale box projection (one repeat / %.0f cm)"%UV_TILE_CM)
     sm=bake(result, ASSET_PATH)
     if sm is None: unreal.log_error("bake failed"); return

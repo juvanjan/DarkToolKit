@@ -166,7 +166,7 @@ def main():
         if not needed: print("No textures referenced (check --mis path)."); sys.exit(1)
 
     os.makedirs(a.out, exist_ok=True)
-    manifest = {}; missing = []; ok = 0; fallbacks = []
+    manifest = {}; missing = []; ok = 0; fallbacks = []; overrides = []
     for key, disp in sorted(needed.items()):
         cands = index.get(key)
         if not cands:
@@ -182,10 +182,29 @@ def main():
             img = img.convert("RGBA") if ("transparency" in img.info or img.mode in ("RGBA","LA","P")) else img.convert("RGB")
             outname = disp + ".png"
             img.save(os.path.join(a.out, outname))
+            # Dark scales a texture by its ORIGINAL size, even when a loose/HD file overrides it for
+            # display. Record that as scale_px so the tile formula (px*2^(scale-20)) matches DromEd.
+            # If the picked file IS the fam.crf copy, scale_px == size. For OVERRIDDEN textures the
+            # fam.crf copy in these archives is stored at HALF the resolution DromEd actually scales by
+            # (ground-truthed vs DromEd: bigbl fam.crf 64 -> real scale 128, and every overridden
+            # texture shares this exact 2x error), so double the fam.crf size for overrides.
+            OVERRIDE_SCALE_FACTOR = 2
+            scale_px = img.size[0]
+            if kind != "crf":
+                crf_c = next((c for c in cands if c[0] == "crf"                       # same-family fam.crf copy
+                              and (not fam or (c[3] and c[3].lower() == fam.lower()))), None)
+                crf_c = crf_c or next((c for c in cands if c[0] == "crf"), None)       # any fam.crf copy
+                if crf_c:
+                    try: scale_px = load_image(crf_c[0], crf_c[1], crf_c[2]).size[0] * OVERRIDE_SCALE_FACTOR
+                    except Exception: pass
+            if scale_px != img.size[0]:
+                overrides.append("%s: display %dpx, scale %dpx (fam.crf original x%d)"
+                                 % (disp, img.size[0], scale_px, OVERRIDE_SCALE_FACTOR))
             manifest[disp] = {"png": outname, "family": fam, "folder": folder,
                               "source": os.path.basename(container) + (("::"+member) if member else ""),
                               "family_matched": bool(fam and exact),
                               "size": list(img.size),
+                              "scale_px": scale_px,
                               "used_by": sorted(set(usage.get(key, [])))}
             ok += 1
         except Exception as e:
@@ -196,6 +215,9 @@ def main():
 
     print("\nConverted %d textures -> %s" % (ok, a.out))
     print("Manifest: %s" % os.path.join(a.out, "textures_manifest.json"))
+    if overrides:
+        print("SCALE OVERRIDE (%d) - HD/loose file used for display, but Dark scale taken from fam.crf size:" % len(overrides))
+        for ov in overrides: print("  " + ov)
     if fallbacks:
         print("FAMILY FALLBACK (%d) - the mission's family folder wasn't found, used another (may look wrong):" % len(fallbacks))
         for fb in fallbacks: print("  " + fb)

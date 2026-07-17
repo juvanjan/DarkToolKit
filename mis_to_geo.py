@@ -111,15 +111,24 @@ def read_txlist(chunks, f):
 #   wedge:      0:+X cap 1:-X cap 2:-Y leg 3:-Z leg 4:hypotenuse
 F_REFLECT=np.array([1.0,-1.0,1.0])
 
+# Dark's cylinder side-record phase. The geometric side that our cyl_local() builds at angular
+# slot k does NOT carry record slot k: Dark's record order is rotated a fixed number of facets
+# around the ring (and the world Y-reflection folds into it). Calibrated vs DromEd ground truth
+# (mission 10, 14-gon: record slot 8 'clnbrik1' lands exactly at UE +X, slot 0 'hewn3' at UE -X),
+# which reproduces the observed "+6 facet" shift: record slot j appears at physical position j+6.
+# Expressed as a fraction of the ring so it scales with side count (8/14 here). If a cylinder with
+# a different side count ever mismaps, this single knob is what to recalibrate.
+CYL_SLOT_PHASE_FRAC = 7.0/14.0
+
 def _cyl_slot(nl, sides):
     # Dark cylinder record order (verified vs DromEd): each SIDE has its own texture.
-    #   side k (record slot k) is centered at angle pi/2 + (k+0.5)*(2pi/sides) in local X-Y.
     #   top cap (+Z) = slot `sides`;  bottom cap (-Z) = slot `sides+1`.
     if abs(nl[2])>0.9:
         return sides if nl[2]>0 else sides+1
     step=2*math.pi/sides
     k=round((math.atan2(nl[1],nl[0])-math.pi/2)/step - 0.5)
-    return int(k % sides)
+    off=int(round(CYL_SLOT_PHASE_FRAC*sides))      # phase of Dark's record order vs our geometry
+    return int((k - off) % sides)
 
 def _slot_for(shape, nl):
     ax=int(np.argmax(np.abs(nl))); sgn=1 if nl[ax]>0 else -1
@@ -163,22 +172,45 @@ def faces_for(b, names):
     def resolve_off(arr,slot):
         if slot<0 or slot>=len(arr): return 0
         return int(arr[slot])                               # RAW texel offset; /texture_px in UE -> UV fraction
+    Va=[np.array(v,dtype=float) for v in V]
+    pos=np.array(b["pos"],dtype=float)
+    def to_ue(v): return ((R@v+pos)*F_REFLECT)*SCALE          # local -> UE world (cm)
     groups={}
     for t in T:
-        p,q,r=(np.array(V[t[i]],dtype=float) for i in range(3))
+        p,q,r=Va[t[0]],Va[t[1]],Va[t[2]]
         n=np.cross(q-p,r-p); L=np.linalg.norm(n)
         if L<1e-9: continue
         nl=n/L; key=tuple(np.round(nl,3))
-        groups.setdefault(key, nl)
+        g=groups.get(key)
+        if g is None: groups[key]=[nl,set(t)]
+        else: g[1].update(t)
+    nsides=int(b.get("sides",8))
     faces=[]
-    for nl in groups.values():
-        if b["shape"]=="cylinder": slot=_cyl_slot(nl, int(b.get("sides",8)))
-        else:                      slot=_slot_for(b["shape"], nl)
+    for nl,vidx in groups.values():
+        cap=0
+        if b["shape"]=="cylinder":
+            slot=_cyl_slot(nl, nsides); cap=1 if slot>=nsides else 0   # cap faces need a 180 in UE
+        else:
+            slot=_slot_for(b["shape"], nl)
         nue=F_REFLECT*(R@nl); nue=nue/ (np.linalg.norm(nue) or 1.0)
-        faces.append(dict(n=[round(float(x),4) for x in nue], tex=resolve(slot),
-                          sc=resolve_scale(slot), rot=round(resolve_rot(slot),3),
+        poly=_order_poly([to_ue(Va[i]) for i in vidx], nue)   # face polygon in UE space (for extent test)
+        dfit=float(np.dot(nue, np.mean(poly,axis=0)))         # plane offset  (n . p == d for p on face)
+        cylside=1 if (b["shape"]=="cylinder" and not cap) else 0   # curved side: needs post-boolean UV re-projection
+        solid=1 if int(b.get("op",1))==0 else 0                     # op 0 = fill SOLID (union); its faces are
+                                                                    # front-facing -> opposite U-mirror vs air carves
+        faces.append(dict(n=[round(float(x),4) for x in nue], d=round(dfit,3),
+                          poly=[[round(float(x),2) for x in p] for p in poly], cap=cap, cylside=cylside, solid=solid,
+                          tex=resolve(slot), sc=resolve_scale(slot), rot=round(resolve_rot(slot),3),
                           uoff=resolve_off(fuof,slot), voff=resolve_off(fvof,slot)))
     return faces
+
+def _order_poly(pts, n):
+    """Order convex-polygon points CCW in their plane (for point-in-polygon tests)."""
+    if len(pts)<3: return pts
+    c=np.mean(pts,axis=0)
+    ref=np.array([1.0,0,0]) if abs(n[0])<0.9 else np.array([0,1.0,0])
+    u=np.cross(ref,n); u/=(np.linalg.norm(u) or 1.0); v=np.cross(n,u)
+    return sorted(pts, key=lambda p: math.atan2(float(np.dot(p-c,v)), float(np.dot(p-c,u))))
 
 # -- Dark texture inheritance ---------------------------------------------------------------------
 # A face texture id of -1 means "inherit the BRUSH'S DEFAULT texture", which Dark stores in the brush

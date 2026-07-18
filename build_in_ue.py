@@ -708,6 +708,30 @@ def _pt_in_poly(c, poly, n, tol=1.5):
         elif cr<-tol: neg=True
     return not (pos and neg)
 
+# Dark's texture base axes, verbatim from csgemit.c:367 (`baseaxis[6][3]`), as {normal, U, V}.
+# compute_poly_texture_info() picks the entry maximising dot(normal_i, face_normal) -- a SIGNED dot
+# over six SIGNED axes, scanned in this order with a strict '>', so exact ties keep the EARLIER entry.
+_DARK_BASEAXIS = [
+    ((1,0,0),  (0,1,0),  (0,0,-1)),   # +X
+    ((0,1,0),  (-1,0,0), (0,0,-1)),   # +Y
+    ((0,0,1),  (1,0,0),  (0,-1,0)),   # +Z  (floor)
+    ((-1,0,0), (0,-1,0), (0,0,-1)),   # -X
+    ((0,-1,0), (1,0,0),  (0,0,-1)),   # -Y
+    ((0,0,-1), (1,0,0),  (0,1,0)),    # -Z  (ceiling)
+]
+
+def _dark_axis_index(n):
+    """Dark's baseaxis pick for a face whose UE-space normal is n.  The selection MUST run on the
+    DARK-space normal: our world is Y-reflected, and Dark compares signed dots, so a flipped Y sign
+    can change which axis wins.  (That is exactly the wedge-id5 bug: n_dark=(0,-0.707,+0.707) makes
+    Dark's +Y dot NEGATIVE so +Z wins, while an abs()-based test sees |Y|==|Z| and picks Y.)"""
+    nd=(n[0], -n[1], n[2])                                   # UE -> Dark (F_REFLECT is its own inverse)
+    best=-1; bs=0.0
+    for i,(bn,_,_) in enumerate(_DARK_BASEAXIS):
+        d=bn[0]*nd[0]+bn[1]*nd[1]+bn[2]*nd[2]
+        if d>bs: bs=d; best=i                                # strict '>' -> ties keep the earlier axis
+    return best
+
 def _uv_basis(n, f):
     """Return (u0, v0, projn) for the planar projection frame. Caps project straight down Z; cylinder
     sides AND wedge slants project from their DOMINANT world axis (Dark's behaviour -> tilted faces
@@ -718,12 +742,24 @@ def _uv_basis(n, f):
         u=f["uaxis"]; return [-u[0],-u[1],-u[2]], list(f["vaxis"]), list(n)
     if abs(n[2])>0.99:                                       # axis-aligned cap
         return [1.0,0.0,0.0], [0.0, 1.0 if n[2]>0 else -1.0, 0.0], list(n)
-    if f.get("cylside") or f.get("slant"):                  # project from dominant world axis (stretch)
+    if f.get("slant"):
+        # Wedge hypotenuse: use Dark's own baseaxis entry rather than an abs()-based guess. Solving
+        # build_u = dot(U,p)/(su*tile) == dark_u = dot(U_dark, F*p)/tile  (and likewise for V) gives
+        #     u0 = -su * F * U_dark        v0 = -F * V_dark
+        # where the leading '-' absorbs the caller's fixed `rot += pi` base. Verified to reproduce
+        # Dark's mapping on every slant/cylinder face in test_missions/*.
+        i=_DARK_BASEAXIS[_dark_axis_index(n)]
+        su=-1.0 if MIRROR_TEX_U else 1.0
+        if f.get("solid"): su=-su                            # must match the caller's su exactly
+        u0=[-su*i[1][0], su*i[1][1], -su*i[1][2]]             # -su * F * U_dark   (F = [1,-1,1])
+        v0=[-i[2][0],    i[2][1],   -i[2][2]]                 # -F * V_dark
+        return u0, v0, _norm(_cross(u0,v0))                   # projn from the cross -> right-handed
+    if f.get("cylside"):                                     # project from dominant world axis (stretch)
         ax=0 if (abs(n[0])>=abs(n[1]) and abs(n[0])>=abs(n[2])) else (1 if abs(n[1])>=abs(n[2]) else 2)
         s=1.0 if n[ax]>=0 else -1.0
         if   ax==0: return [0.0,s,0.0], [0.0,0.0,1.0], [s,0.0,0.0]
         elif ax==1: return [-s,0.0,0.0], [0.0,0.0,1.0], [0.0,s,0.0]
-        else:       return [1.0,0.0,0.0], [0.0,s,0.0], [0.0,0.0,s]   # Z-dominant slant (cap-like, stretched)
+        else:       return [1.0,0.0,0.0], [0.0,s,0.0], [0.0,0.0,s]
     u0=_norm(_cross([0.0,0.0,1.0], n)); v0=_norm(_cross(n,u0))       # box wall perpendicular
     return u0, v0, list(n)
 

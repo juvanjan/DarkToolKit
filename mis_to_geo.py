@@ -46,6 +46,71 @@ def cyl_local(h,sides):                    # n-gon prism, +90 deg phase
         a,b=k,(k+1)%n; T.append((a,b,n+b)); T.append((a,n+b,n+a))
     return V,T
 
+def ngon_base(n, face_align=False):
+    """Dark's build_ngon_base (primshap.c:182), unit ring in the XY plane:
+         ang = 2pi*(2i + face_mod)/(2n);   y = cos(ang)*sf;   x = -sin(ang)*sf
+       face_mod = 1 for face-aligned rings (rotated half a facet), 0 for vertex-aligned. Face-aligned
+       rings are also scaled by 1/cos(pi/n) so the FACE - not the vertex - touches the unit box; Dark
+       computes that factor once at i==0 and reuses it for every vertex, which we reproduce."""
+    fm = 1.0 if face_align else 0.0
+    sf = 1.0/math.cos(math.pi/n) if face_align else 1.0
+    out=[]
+    for i in range(n):
+        a = 2.0*math.pi*(2*i+fm)/(2.0*n)
+        out.append((-math.sin(a)*sf, math.cos(a)*sf))
+    return out
+
+def pyr_local(h, sides, corner=False, face_align=False):
+    """Dark's PrimShape_CreateNGonPyr (primshap.c:213). Base ring at z=-1 (points 0..n-1), apex at
+       point n: centred for a pyramid, over base vertex 0 for a cornerpyramid. Faces: side i spans
+       base verts i -> i+1 plus the apex (record slots 0..n-1), then the base ring (record slot n)."""
+    hx,hy,hz=h; n=max(3,int(sides))
+    ring=ngon_base(n, face_align)
+    V=[(x*hx, y*hy, -hz) for (x,y) in ring]
+    V.append((ring[0][0]*hx, ring[0][1]*hy, hz) if corner else (0.0,0.0,hz))
+    # Dark's face_pts list is a POLYGON vertex list, not a triangle winding; the ring runs CCW seen
+    # from +Z, so wind sides (i, i+1, apex) and the base fan backwards to get OUTWARD normals here.
+    # (bake() re-runs orient() anyway, but faces_for() reads these normals raw.)
+    # Also return the record slot of every triangle, rather than re-deriving it from the face normal's
+    # azimuth. The azimuth trick assumes a side normal points along the midpoint angle of its two base
+    # verts. That survives a corner apex (base edges are horizontal, so the normal is perpendicular to
+    # its edge whatever the apex does) but it FAILS on an elliptical base: with hx != hy the edge is no
+    # longer perpendicular to the midpoint radial, and a 2:1 ellipse mis-slots 4 of 14 sides. Emitting
+    # the slot from the generator is exact for every variant and needs no phase term at all.
+    ap=n; T=[]; tslot=[]
+    for i in range(n): T.append((i, (i+1)%n, ap)); tslot.append(i)   # side i -> record slot i
+    for k in range(1,n-1): T.append((0,k+1,k)); tslot.append(n)      # base fan -> record slot n
+    return V,T,tslot
+
+# -- regular dodecahedron: Dark's hardcoded tables, verbatim from primshap.c:389 -------------------
+# 20 points / 30 edges / 12 pentagonal faces. Unlike the other primals its raw points are NOT unit in
+# each axis (max |x|,|y|,|z| = G, E, C below), and Dark just element-wise multiplies them by the
+# brush's sz (primal.c:278 primalRawFull -> mx_elmul_vec), so a dodec brush's true half-extents are
+# (0.934*sx, 0.982*sy, 0.795*sz). Reproduce that exactly rather than normalising.
+_DODA,_DODB,_DODC,_DODD,_DODE = 0.0, 0.5773502692, 0.7946544723, 0.1875924741, 0.9822469464
+_DODF,_DODG,_DODH,_DODI,_DODJ = 0.6070619982, 0.9341723590, 0.3568220898, 0.4911234732, 0.3035309991
+DODEC_PTS=[
+ ( _DODB, _DODD,-_DODC),( _DODA, _DODF,-_DODC),(-_DODB, _DODD,-_DODC),(-_DODH,-_DODI,-_DODC),( _DODH,-_DODI,-_DODC),
+ ( _DODG, _DODJ,-_DODD),( _DODA, _DODE,-_DODD),(-_DODG, _DODJ,-_DODD),(-_DODB,-_DODC,-_DODD),( _DODB,-_DODC,-_DODD),
+ ( _DODB,-_DODD, _DODC),( _DODA,-_DODF, _DODC),(-_DODB,-_DODD, _DODC),(-_DODH, _DODI, _DODC),( _DODH, _DODI, _DODC),
+ ( _DODG,-_DODJ, _DODD),( _DODA,-_DODE, _DODD),(-_DODG,-_DODJ, _DODD),(-_DODB, _DODC, _DODD),( _DODB, _DODC, _DODD)]
+# face_pts_list: index == record slot, five points per pentagon
+DODEC_FACES=[
+ [ 0, 1, 2, 3, 4],[ 0, 4, 9,15, 5],[ 1, 0, 5,19, 6],[ 2, 1, 6,18, 7],[ 3, 2, 7,17, 8],[ 4, 3, 8,16, 9],
+ [10,11,12,13,14],[10,14,19, 5,15],[11,10,15, 9,16],[12,11,16, 8,17],[13,12,17, 7,18],[14,13,18, 6,19]]
+
+def dodec_local(h):
+    """Dark's PrimShape_CreateDodecahedron. Record slot == face index 0..11. As with the cube/wedge/
+       pyramid tables, face_pts is a POLYGON vertex list wound the opposite way from our outward-normal
+       convention, so fan-triangulate it reversed."""
+    hx,hy,hz=h
+    V=[(x*hx, y*hy, z*hz) for (x,y,z) in DODEC_PTS]
+    T=[]; tslot=[]
+    for si,poly in enumerate(DODEC_FACES):
+        for k in range(1,len(poly)-1):
+            T.append((poly[0], poly[k+1], poly[k])); tslot.append(si)
+    return V,T,tslot
+
 def signed_volume(V,T):
     s=0.0
     for a,b,c in T:
@@ -74,15 +139,38 @@ def orient(V,T):
     return [tuple(t) for t in T]
 
 def classify(nf):
+    """LEGACY fallback only. Face count is ambiguous - a 4-sided cylinder also has 6 faces, a 4-sided
+       pyramid also has 5 - so this misreads ~16% of brushes in MISS15. Use classify_primal()."""
     if nf>=7: return "cylinder",nf-2
     if nf==6: return "box",0
     if nf==5: return "wedge",0
     return "box",0
 
+# primal_id (brush record offset 4) encodes the shape exactly - src/editor/primal.h:28
+#   primalID_Make(type,sides) = (type<<9) + (sides-3);  PRIMAL_ALIGN_FACE = 0x100
+PRIMAL_TYPES={0:"special",1:"cylinder",2:"pyramid",3:"cornerpyr"}
+
+def classify_primal(pid, nf):
+    """(shape, sides, face_align) from primal_id, falling back to the face count if it looks bogus."""
+    t=(pid>>9)&0x7; sides=(pid&0xff)+3; falign=bool(pid&0x100)
+    kind=PRIMAL_TYPES.get(t)
+    if kind=="cylinder" and 3<=sides<=64:  return "cylinder",sides,falign
+    if kind=="pyramid"  and 3<=sides<=64:  return "pyramid",sides,falign
+    if kind=="cornerpyr"and 3<=sides<=64:  return "cornerpyr",sides,falign
+    if kind=="special":
+        if sides==4:  return "box",0,falign
+        if sides==10: return "wedge",0,falign
+        if sides==9:  return "dodec",0,falign     # PRIMAL_DODEC_IDX (primal_id 6), 12 pentagons
+    s,n=classify(nf)                                    # dodec/line/light or a corrupt id
+    return s,n,falign
+
 def bake(b):
     h=b["half"]
     if   b["shape"]=="cylinder": V,T=cyl_local(h,b["sides"])
     elif b["shape"]=="wedge":    V,T=wedge_local(h)
+    elif b["shape"] in ("pyramid","cornerpyr"):
+        V,T,_=pyr_local(h,b["sides"],b["shape"]=="cornerpyr",b.get("falign",False))
+    elif b["shape"]=="dodec":    V,T,_=dodec_local(h)
     else:                        V,T=box_local(h)
     R=Mdark(b["H"],b["P"],b["B"]); pos=np.array(b["pos"])
     Wd=(R@np.array(V,dtype=float).T).T + pos            # Dark space (feet)
@@ -150,8 +238,12 @@ def _slot_for(shape, nl):
 def faces_for(b, names):
     """Return [{n:[ux,uy,uz], tex:name|None}] - one per distinct face, in UE space."""
     h=b["half"]
+    tslot=None
     if   b["shape"]=="cylinder": V,T=cyl_local(h,b["sides"])
     elif b["shape"]=="wedge":    V,T=wedge_local(h)
+    elif b["shape"] in ("pyramid","cornerpyr"):
+        V,T,tslot=pyr_local(h,b["sides"],b["shape"]=="cornerpyr",b.get("falign",False))
+    elif b["shape"]=="dodec":    V,T,tslot=dodec_local(h)
     else:                        V,T=box_local(h)
     R=Mdark(b["H"],b["P"],b["B"])
     ftex=b.get("ftex",[]); fscl=b.get("fscl",[]); frot=b.get("frot",[]); fuof=b.get("fuof",[]); fvof=b.get("fvof",[])
@@ -178,21 +270,36 @@ def faces_for(b, names):
     Va=[np.array(v,dtype=float) for v in V]
     pos=np.array(b["pos"],dtype=float)
     def to_ue(v): return ((R@v+pos)*F_REFLECT)*SCALE          # local -> UE world (cm)
+    # Group triangles into faces. Normally the grouping key is the rounded local normal, but when the
+    # generator handed us an explicit per-triangle slot map (pyramids) we key on the SLOT instead: it is
+    # exact, and it keeps two coplanar-but-differently-textured faces apart (a cornerpyramid's two
+    # vertical sides through the apex edge can share a plane).
     groups={}
-    for t in T:
+    for ti,t in enumerate(T):
         p,q,r=Va[t[0]],Va[t[1]],Va[t[2]]
         n=np.cross(q-p,r-p); L=np.linalg.norm(n)
-        if L<1e-9: continue
-        nl=n/L; key=tuple(np.round(nl,3))
+        if L<1e-9: continue                                   # degenerate (cornerpyr sides at the apex)
+        nl=n/L
+        key=tslot[ti] if tslot is not None else tuple(np.round(nl,3))
         g=groups.get(key)
-        if g is None: groups[key]=[nl,set(t)]
+        if g is None: groups[key]=[nl,set(t),(tslot[ti] if tslot is not None else None)]
         else: g[1].update(t)
     nsides=int(b.get("sides",8))
+    ispyr=b["shape"] in ("pyramid","cornerpyr")
     faces=[]
-    for nl,vidx in groups.values():
-        cap=0
+    for nl,vidx,gslot in groups.values():
+        cap=0; pyrside=0; dodside=0
         if b["shape"]=="cylinder":
             slot=_cyl_slot(nl, nsides); cap=1 if slot>=nsides else 0   # cap faces need a 180 in UE
+        elif ispyr:
+            slot=gslot                                  # exact, straight from pyr_local
+            if slot>=nsides: cap=1                      # the -Z base is a world-horizontal cap
+            else:            pyrside=1                  # tilted side -> Dark base-axis projection
+        elif b["shape"]=="dodec":
+            slot=gslot                                  # exact, straight from dodec_local
+            dodside=1                                   # tilted pentagon -> Dark base-axis projection
+            # faces 0 and 6 are exactly +/-Z; the builder's cap branch intercepts those on |n_z|>0.99
+            # before the Dark branch is reached, so no special-casing is needed here.
         else:
             slot=_slot_for(b["shape"], nl)
         nue=F_REFLECT*(R@nl); nue=nue/ (np.linalg.norm(nue) or 1.0)
@@ -204,14 +311,14 @@ def faces_for(b, names):
         slant=1 if (b["shape"]=="wedge" and slot==0) else 0         # wedge hypotenuse (slot 0): half-tile V phase
         fd=dict(n=[round(float(x),4) for x in nue], d=round(dfit,3),
                 poly=[[round(float(x),2) for x in p] for p in poly], cap=cap, cylside=cylside, solid=solid,
-                slant=slant,
+                slant=slant, pyrside=pyrside, dodside=dodside,
                 tex=resolve(slot), sc=resolve_scale(slot), rot=round(resolve_rot(slot),3),
                 uoff=resolve_off(fuof,slot), voff=resolve_off(fvof,slot))
         # ROTATED brushes, WORLD-HORIZONTAL (cap) faces only: build picks the cap U/V by a fixed world axis,
         # which ignores the brush rotation (a pitched wedge's triangle cap comes out mis-rotated). Vertical
         # faces are fine on the world-based path (that's how Dark works), so we leave them alone. For the
         # ambiguous cap we bake the texture axes from the LOCAL normal, transformed by R and the Y-reflection.
-        if (abs(b["H"])>0.5 or abs(b["P"])>0.5 or abs(b["B"])>0.5) and abs(nue[2])>0.99 and not cylside and not slant:
+        if (abs(b["H"])>0.5 or abs(b["P"])>0.5 or abs(b["B"])>0.5) and abs(nue[2])>0.99 and not cylside and not slant and not pyrside and not dodside:
             if abs(nl[2])>0.99: lu=np.array([1.0,0.0,0.0]); lv=np.array([0.0,1.0 if nl[2]>0 else -1.0,0.0])
             else:
                 lu=np.cross([0.0,0.0,1.0],nl); lu=lu/(np.linalg.norm(lu) or 1.0)
@@ -275,6 +382,7 @@ def extract(path):
         if p+76+nf*10>N: break                     # truncated / misaligned safety
         if op in KEEP_OPS:
             bid,tm=struct.unpack_from("<hh",d,p)
+            pid=struct.unpack_from("<i",d,p+4)[0]            # primal_id: shape type + side count + align bit
             deftex=struct.unpack_from("<h",d,p+8)[0]         # brush's DEFAULT texture (what -1 faces inherit)
             x,y,z,sx,sy,sz=struct.unpack_from("<6f",d,p+12)
             ax,ay,az=struct.unpack_from("<3H",d,p+36)
@@ -284,9 +392,9 @@ def extract(path):
             fscl=[struct.unpack_from("<H",d,q0+k*10+4)[0] for k in range(nf)]   # +4 scale (16 = 1x)
             fuof=[struct.unpack_from("<H",d,q0+k*10+6)[0] for k in range(nf)]   # +6 U offset
             fvof=[struct.unpack_from("<H",d,q0+k*10+8)[0] for k in range(nf)]   # +8 V offset
-            shape,sides=classify(nf)
+            shape,sides,falign=classify_primal(pid,nf)
             if all(math.isfinite(v) for v in (x,y,z,sx,sy,sz)) and min(sx,sy,sz)>0.0:
-                out.append(dict(id=bid,time=tm,op=int(op),shape=shape,sides=sides,deftex=deftex,
+                out.append(dict(id=bid,time=tm,op=int(op),shape=shape,sides=sides,falign=falign,deftex=deftex,
                                 pos=(x,y,z),half=(sx,sy,sz),H=dg(az),P=dg(ay),B=dg(ax),
                                 ftex=ftex,fscl=fscl,frot=frot,fuof=fuof,fvof=fvof))
         p+=76+nf*10

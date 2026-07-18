@@ -232,11 +232,103 @@ We map 0 → 16. Rare (6 faces in MISS12) but trivially fixable.
 
 ## 5. What's simply missing
 
-1. **Pyramid + cornerpyramid primitives** — `PrimShape_CreateNGonPyr` (`primshap.c:210`).
-2. **Face-aligned primal variants** — half-facet phase + `1/cos(π/n)` radius (§2b).
+1. ~~**Pyramid + cornerpyramid primitives**~~ — **DONE** (see §7).
+2. ~~**Face-aligned primal variants**~~ — **DONE for pyramids** via `ngon_base(face_align=)`; cylinders
+   still always build vertex-aligned (`cyl_local` ignores the bit).
 3. **Dodecahedron** (`PRIMAL_DODEC_IDX`) — 1 brush in MISS1, ignorable.
 4. **Ops 6 / 7** in `KEEP_OPS`.
 5. **Mode A/B dispatch on `tx_rot == 1`** rather than on a geometric guess (§3).
+
+---
+
+## 7. Implemented so far
+
+### Wedge slant UV (fixes the id5 half-texture offset)
+`_uv_basis` now selects the projection axis with **Dark's signed rule on the DARK-space normal**
+(`_dark_axis_index`), using the verbatim `_DARK_BASEAXIS` table. The old `abs()` test on the
+*UE* normal was blind to the Y-reflection's sign flip, so for `n_dark=(0,-0.707,+0.707)` it chose
+Y where Dark chooses +Z. Same U, same V slope, different constant → a pure texture shift.
+Mapping into the build's conventions: `u0 = -su·F·U_dark`, `v0 = -F·V_dark`, `projn = u0 × v0`.
+Verified: reproduces Dark on 12/12 slant faces; changes 3 of 325 faces overall.
+
+### 🔴 mk_buffer winding — UE wants the OPPOSITE handedness
+`mk_buffer` is the only path that hands UE raw triangles; every other shape comes from a
+GeometryScript primitive that generates UE-correct winding itself. So this was never exercised until
+the first pyramid. The geo's triangles are wound outward by our convention (`orient()` forces a
+positive signed volume), and `append_buffers_to_mesh` wants the opposite — so buffer-built shapes
+came out **inside-out**. One fault, three symptoms:
+
+- faces visible only from *inside* (back-facing + one-sided materials)
+- the CSG union emits a shell instead of adding volume — "two rooms with a wall between", because an
+  inverted solid has negative volume
+- **textures appear flipped regardless of the UV frame** — an inside-out surface mirrors its texture
+
+That third one is a trap: it looks exactly like a UV bug and is completely immune to UV fixes.
+`mk_buffer` now reverses winding (and recomputes normals from the reversed set).
+
+**Verify geometry in UE before debugging texture orientation.** Three consecutive UV "fixes" were
+made downstream of this and all appeared not to work.
+
+### The `_uv_basis` branches, and one constraint that looks real but isn't
+For the *same* Dark base axis the two hand-tuned branches differ:
+
+| face | branch | equals |
+|---|---|---|
+| world-horizontal (`\|n_z\|>0.99`) | cap branch | `+F · [U,V]_dark` |
+| vertical | box-wall branch | `−F · [U,V]_dark` |
+
+It is tempting to conclude that a new branch must agree with the cap branch on horizontal faces.
+**It must not — that case is unreachable.** `|n_z| > 0.99` is caught by the cap branch *before* the
+Dark branch is consulted, so the Dark branch only ever sees TILTED faces. Those may *select* the ±Z
+floor/ceiling axis without being horizontal — every pyramid side does (`|n_z| ≈ 0.83`).
+
+Special-casing ±Z to the cap convention on that vacuous reasoning rotated all 14 pyramid sides (and
+the 2 ±Z-selecting wedge slants) by 180°. The branch now uses `−F · [U,V]_dark` uniformly.
+
+Beware circular verification throughout: checking a derived frame against a Dark reference built with
+the *same* convention always passes and proves nothing. Anchor only on faces confirmed in DromEd.
+
+### `primal_id` shape detection
+`classify_primal(pid, nf)` replaces `classify(nf)` (kept only as a fallback for corrupt ids and
+for dodec/line/light). Brushes now carry `sides` and `falign` from the record.
+
+### Pyramid / cornerpyramid
+- `ngon_base(n, face_align)` — Dark's `build_ngon_base` verbatim, including the `1/cos(π/n)`
+  face-aligned radius that Dark computes once at `i==0` and reuses.
+- `pyr_local(h, sides, corner, face_align)` — base ring at `z=-1`, apex at index `n`
+  (centred, or over vertex 0 for cornerpyr). **Note:** Dark's `face_pts_list` is a polygon vertex
+  list, *not* a triangle winding — wind sides `(i, i+1, apex)` and the base fan backwards, or
+  `faces_for()` reads inward normals and every slot lands wrong.
+- `_pyr_slot(nl, sides, face_align)` — record slot from the local normal: sides `0..n-1`, base `n`.
+  Derived from the generator, so **no empirical phase constant** (contrast `CYL_SLOT_PHASE_FRAC`).
+- Side faces carry `pyrside=1` and take the same Dark base-axis UV path as wedge slants — their
+  non-unit in-plane U/V *is* the `1/cos` stretch.
+- No builder work needed: `mk()` routes unknown shapes to `mk_buffer`, which builds from the geo's
+  own verts/tris. Flat faces keep their per-primitive UVs through the boolean, so `retag_final`
+  correctly skips them.
+
+### Adaptive select-by-normal cone (`_safe_cone`)
+`_select_by_normal` had a hardcoded **15°** cone. That is wider than the facet spacing on dense
+brushes, so a face's selection also grabbed its neighbours and each planar projection overwrote the
+previous one — last write wins. Two visible symptoms, both in the 11.mis screenshot: smeared
+textures crossing facet boundaries, and flat single-colour triangles (a projection inherited from a
+neighbour projects nearly edge-on to that facet, so its UVs collapse — the same failure the
+`_uv_basis` comments describe for left-handed frames).
+
+Measured minimum inter-face angles: **14-gon pyramid 14.41°** (11.mis), 14-gon cylinder 25.71°,
+10-gon cylinder 10.30°. So the fixed cone was over-grabbing on the pyramid *and* on some cylinders
+— the latter was masked because `apply_cyl_face_uvs` re-projects cylinder sides afterwards.
+
+`_safe_cone(faces)` now returns `max(1, min(15, 0.4 × min_pairwise_angle))`. Faces are flat, so
+their own triangles sit exactly on the normal and any positive cone still captures them. Applied in
+`apply_face_uvs` and `_tag_by_selection`. Verified: 0 brushes across all 14 test missions where the
+cone can reach a second face. (`_tag_by_triangle`, the preferred material path, was never affected —
+it takes the argmax face per triangle.)
+
+Validated on `11.mis` (14-sided pyramid, 14 distinct side textures): all 15 record slots map to the
+right texture, AABB/apex/ring-radius exact, all 14 side frames right-handed, peak stretch 1.211 vs
+the predicted `1/0.825 = 1.212`. `08.mis` id2 (10-sided pyramid, previously built as an 8-sided
+cylinder) also now correct.
 
 ---
 

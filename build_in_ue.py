@@ -26,7 +26,7 @@
 
 import unreal, json, math
 
-GEO_PATH    = r"C:\Nex\DarkSimProject\DarkSimToolkit\test_missions\13_geo.json"   # <-- SET (the *_geo.json)
+GEO_PATH    = r"C:\Nex\DarkSimProject\DarkSimToolkit\test_missions\11_geo.json"   # <-- SET (the *_geo.json)
 ASSET_PATH  = r"/Game/Mission/SM_Mission"
 BUILD_WATER = True        # also bake the water volume as a separate static mesh (SM_..._Water)
 BUILD_COLLISION = True    # give the mesh collision (complex-as-simple: the triangles ARE the collision)
@@ -40,7 +40,7 @@ UV_TILE_CM  = 64.0        # world-space texture tile size (one texture repeat pe
 RES_SCALING = False       # per-texture material tiling (superseded by per-face UV formula below)
 TEXEL_REF_PX = 64.0       # fallback texture width if a texture's size is unknown
 FEET_CM = 30.48           # Dark world tile (feet) = pixels * 2^(scale-20); this converts feet -> cm
-TEX_SHIFT_U = 0.0         # our planar projection sits half a tile off in U vs Dark; 0.5 corrects it
+TEX_SHIFT_U = 0.0         # U needs no shift
 TEX_SHIFT_V = 0.0         # V needs no shift
 MIRROR_TEX_U = True       # level is Y-reflected -> textures come out horizontally mirrored (a left arrow
                           #   reads as a right arrow). Flip the U axis of every face's UV to undo it.
@@ -335,13 +335,45 @@ def mk_cylinder(b):
         unreal.log_warning("  cylinder primitive failed (%s); buffer fallback"%e)
         return mk_buffer(b)
 
+_BUFLOG=[False]
 def mk_buffer(b):
+    """Build straight from the geo's verts/tris. NOTE this is the only path that does NOT go through a
+    GeometryScript primitive (append_box / append_cylinder / plane-cut), which has two consequences:
+
+    WINDING: the geo's triangles are wound so cross(q-p, r-p) points OUTWARD (orient() forces a
+    positive signed volume in UE space). append_buffers_to_mesh wants the opposite handedness, so a
+    buffer-built shape comes out INSIDE-OUT: faces visible only from within, and - because an inverted
+    solid has negative volume - the CSG union emits a shell instead of adding volume ("two rooms with
+    a wall between"). It also makes textures look mirrored, immune to any UV fix. Hence the reversal.
+
+    ATTRIBUTES: primitives create the UV + normal overlays; a bare vertices/triangles buffer does not,
+    so per-face planar projections have nothing to write into and every face samples a single texel
+    (one flat colour per face). Hence the explicit normals/uv0 below."""
     if GEDIT is None: return mk_box(b)  # last resort
     m=new_mesh(); buf=MeshBuffers()
-    V=b["verts"]; T=b["tris"]
+    V=b["verts"]
+    T=[(t[0],t[2],t[1]) for t in b["tris"]]          # reverse winding for UE (see docstring)
+    nrm=[[0.0,0.0,0.0] for _ in V]                   # per-vertex normals from the REVERSED tris
+    for t in T:
+        p,q,r=V[t[0]],V[t[1]],V[t[2]]
+        cx=_cross([q[i]-p[i] for i in range(3)],[r[i]-p[i] for i in range(3)])
+        for vi in t:
+            for i in range(3): nrm[vi][i]+=cx[i]
+    nrm=[_norm(n) if (n[0] or n[1] or n[2]) else [0.0,0.0,1.0] for n in nrm]
+    got=[]
     buf.set_editor_property("vertices",  [unreal.Vector(v[0],v[1],v[2]) for v in V])
     buf.set_editor_property("triangles", [unreal.IntVector(t[0],t[1],t[2]) for t in T])
+    for prop,val in (("normals",[unreal.Vector(n[0],n[1],n[2]) for n in nrm]),
+                     ("uv0",    [unreal.Vector2D(v[0]/100.0, v[1]/100.0) for v in V])):
+        try: buf.set_editor_property(prop,val); got.append(prop)
+        except Exception as e:
+            if not _BUFLOG[0]: unreal.log_warning("  mk_buffer: could not set '%s' (%s)"%(prop,e))
     GEDIT.append_buffers_to_mesh(m, buf)
+    ensure_uv_normals(m)                             # belt-and-braces overlay initialisation
+    if not _BUFLOG[0]:
+        _BUFLOG[0]=True
+        unreal.log("  mk_buffer: %d verts %d tris, winding reversed for UE, attrs set: %s"
+                   %(len(V),len(T),",".join(got) or "NONE"))
     return m
 
 # ---------------------------------------------------------------- textures (all behind BUILD_TEXTURES)
@@ -508,11 +540,12 @@ def _set_matid_tri(mesh,tid,mid):
 
 def _tag_by_selection(mesh, faces, dom):
     # one selection per face, by normal, then set material id on that selection
+    cone=_safe_cone(faces)        # same over-grab hazard as apply_face_uvs (see _safe_cone)
     for f in faces:
         tex=f.get("tex") or dom
         mid=material_id(tex); n=f["n"]; nv=unreal.Vector(n[0],n[1],n[2])
         sel=None
-        for call in ((mesh,nv,15.0),(mesh,nv,15.0,True),(mesh,unreal.GeometryScriptMeshSelection(),nv,15.0)):
+        for call in ((mesh,nv,cone),(mesh,nv,cone,True),(mesh,unreal.GeometryScriptMeshSelection(),nv,cone)):
             try:
                 r=getattr(GSEL_N,_SELN)(*call); sel=r[0] if isinstance(r,(tuple,list)) else r; break
             except Exception: continue
@@ -588,6 +621,22 @@ def _select_by_normal(mesh, nv, angle=15.0):
         except Exception: continue
     return None
 
+def _safe_cone(faces, default=15.0):
+    """Half-angle for select-by-normal, shrunk so a selection can only ever hit ONE face.
+    A fixed 15 deg cone over-grabs on densely faceted brushes - a 14-gon pyramid's sides are 14.4 deg
+    apart and 11.mis's cornerpyramid gets down to 8.3 deg - so each face's planar projection also
+    lands on its neighbours and the last write wins (smeared texturing, plus flat single-colour facets
+    where an inherited projection ends up edge-on). Faces are flat, so their own triangles sit exactly
+    on the normal and any positive cone still captures them."""
+    ns=[f.get("n") for f in faces if f.get("n")]
+    mn=180.0
+    for i in range(len(ns)):
+        for j in range(i+1,len(ns)):
+            d=ns[i][0]*ns[j][0]+ns[i][1]*ns[j][1]+ns[i][2]*ns[j][2]
+            a=math.degrees(math.acos(max(-1.0,min(1.0,d))))
+            if a<mn: mn=a
+    return max(1.0, min(default, 0.4*mn))
+
 # Dark computes texture SCALE from each texture's *logical* (original) resolution, which is NOT
 # necessarily the file resolution. HD texture packs replace a stock 256px texture with a 512px image
 # but Dark still scales it as 256 -> our tile came out 2x too big. Keep the 512 file for DISPLAY, but
@@ -615,6 +664,8 @@ def apply_face_uvs(mesh, b):
         _PERFACE_UV[0]=False; unreal.log_warning("  per-face UV: planar/selection funcs missing"); return
     faces=b.get("faces") or []
     if not faces: return          # e.g. the world box (no per-face data) - skip WITHOUT disabling per-face
+    cone=_safe_cone(faces)        # never wide enough to grab a neighbouring facet (see _safe_cone)
+    _okn=[0]
     for f in faces:
         n=f["n"]; nv=unreal.Vector(n[0],n[1],n[2])
         sc=int(f.get("sc",16)); res=_face_res(f.get("tex"))
@@ -626,7 +677,7 @@ def apply_face_uvs(mesh, b):
         if f.get("solid") and abs(n[2])>0.99 and not f.get("uaxis"): rot+=math.pi   # solid horiz cap seen from opposite side -> 180
         uoff=float(f.get("uoff",0.0) or 0.0)/res            # texels -> tile fraction
         voff=-float(f.get("voff",0.0) or 0.0)/res           # V offset runs opposite to U (verified vs DromEd)
-        sel=_select_by_normal(mesh,nv)
+        sel=_select_by_normal(mesh,nv,cone)
         if sel is None: _PERFACE_UV[0]=False; unreal.log_warning("  per-face UV: no normal selection; using global box UV"); return
         # CONSISTENT in-plane axes; the frame [U,V,projn] MUST be right-handed or the projection collapses.
         # Caps -> Z; cylinder sides & wedge slants -> dominant world axis (stretch); walls -> perpendicular.
@@ -651,9 +702,13 @@ def apply_face_uvs(mesh, b):
         if not ok:
             _PERFACE_UV[0]=False
             unreal.log_warning("  per-face UV: planar projection failed (%s); using global box UV"%err); return
+        _okn[0]+=1
         if not _PERFACE_LOGGED[0]:
             _PERFACE_LOGGED[0]=True
             unreal.log("  per-face UV OK (e.g. %s sc=%d -> tile=%.0fcm)"%(f.get("tex"),sc,tile))
+    if b.get("shape") not in ("box","wedge","cylinder"):     # buffer-built: report explicitly
+        unreal.log("  %s id%s: %d/%d faces projected (cone %.2f deg)"
+                   %(b.get("shape"), b.get("id"), _okn[0], len(faces), cone))
 
 _CYLUV_LOGGED=[False]
 def apply_cyl_face_uvs(mesh, b):
@@ -742,17 +797,23 @@ def _uv_basis(n, f):
         u=f["uaxis"]; return [-u[0],-u[1],-u[2]], list(f["vaxis"]), list(n)
     if abs(n[2])>0.99:                                       # axis-aligned cap
         return [1.0,0.0,0.0], [0.0, 1.0 if n[2]>0 else -1.0, 0.0], list(n)
-    if f.get("slant"):
-        # Wedge hypotenuse: use Dark's own baseaxis entry rather than an abs()-based guess. Solving
-        # build_u = dot(U,p)/(su*tile) == dark_u = dot(U_dark, F*p)/tile  (and likewise for V) gives
-        #     u0 = -su * F * U_dark        v0 = -F * V_dark
-        # where the leading '-' absorbs the caller's fixed `rot += pi` base. Verified to reproduce
-        # Dark's mapping on every slant/cylinder face in test_missions/*.
+    if f.get("slant") or f.get("pyrside") or f.get("dodside"):
+        # Tilted flat face (wedge hypotenuse / pyramid side / dodecahedron pentagon): use Dark's own
+        # baseaxis entry rather than an abs()-based guess. This is Dark's "mode B" path, and the
+        # non-unit U/V it produces for an off-axis plane IS the 1/cos stretch (csgemit.c:387).
+        #
+        # Convention: -F * [U,V]_dark, i.e. the same one the box-wall branch below uses, with the
+        # leading '-' feeding the caller's fixed `rot += pi`. Uniform for every axis Dark can pick.
+        #
+        # An earlier version special-cased a +/-Z pick to the CAP branch's opposite convention, on the
+        # reasoning that both branches must agree for a world-horizontal face. That constraint is
+        # vacuous: a face with |n_z| > 0.99 is caught by the cap branch ABOVE and never reaches here.
+        # This branch only ever sees TILTED faces, which may *select* the +/-Z floor/ceiling axis
+        # without being horizontal - every pyramid side does exactly that (|n_z| ~ 0.83) - so the
+        # special case rotated all of them by 180 deg. Confirmed correct in UE as written.
         i=_DARK_BASEAXIS[_dark_axis_index(n)]
-        su=-1.0 if MIRROR_TEX_U else 1.0
-        if f.get("solid"): su=-su                            # must match the caller's su exactly
-        u0=[-su*i[1][0], su*i[1][1], -su*i[1][2]]             # -su * F * U_dark   (F = [1,-1,1])
-        v0=[-i[2][0],    i[2][1],   -i[2][2]]                 # -F * V_dark
+        u0=[-i[1][0],  i[1][1], -i[1][2]]                     # -F * U_dark   (F = [1,-1,1])
+        v0=[-i[2][0],  i[2][1], -i[2][2]]                     # -F * V_dark
         return u0, v0, _norm(_cross(u0,v0))                   # projn from the cross -> right-handed
     if f.get("cylside"):                                     # project from dominant world axis (stretch)
         ax=0 if (abs(n[0])>=abs(n[1]) and abs(n[0])>=abs(n[2])) else (1 if abs(n[1])>=abs(n[2]) else 2)

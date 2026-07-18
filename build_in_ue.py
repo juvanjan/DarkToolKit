@@ -620,21 +620,22 @@ def apply_face_uvs(mesh, b):
         sc=int(f.get("sc",16)); res=_face_res(f.get("tex"))
         tile=res*(2.0**(sc-20))*FEET_CM                 # world tile in cm
         rot=math.radians(float(f.get("rot",0.0) or 0.0))+math.pi   # base was 180 deg off (verified vs DromEd)
+        if f.get("uaxis"): rot-=math.pi/2                   # baked cap frame is 90 deg off (mirror flips sense) -> correct it
+        if f.get("capleg"): rot+=math.pi/2                  # cap from the -Y leg (not extrude axis) is a further 90 CCW
+        if f.get("capleg_rot"): rot-=math.pi/2              # heading-rotated leg cap (id6): undo the heading-induced 90
+        if f.get("solid") and abs(n[2])>0.99 and not f.get("uaxis"): rot+=math.pi   # solid horiz cap seen from opposite side -> 180
         uoff=float(f.get("uoff",0.0) or 0.0)/res            # texels -> tile fraction
         voff=-float(f.get("voff",0.0) or 0.0)/res           # V offset runs opposite to U (verified vs DromEd)
         sel=_select_by_normal(mesh,nv)
         if sel is None: _PERFACE_UV[0]=False; unreal.log_warning("  per-face UV: no normal selection; using global box UV"); return
-        # CONSISTENT in-plane axes; the frame [U,V,n] MUST be right-handed (U x V = n) or the projection
-        # collapses (that was the black/solid bottom face).
-        if abs(n[2])>0.99:                               # top / bottom
-            u0=[1.0,0.0,0.0]; v0=[0.0, 1.0 if n[2]>0 else -1.0, 0.0]   # bottom flips V -> right-handed
-        else:                                            # walls: V up (+Z), U horizontal
-            u0=_norm(_cross([0.0,0.0,1.0], n)); v0=_norm(_cross(n,u0))
+        # CONSISTENT in-plane axes; the frame [U,V,projn] MUST be right-handed or the projection collapses.
+        # Caps -> Z; cylinder sides & wedge slants -> dominant world axis (stretch); walls -> perpendicular.
+        u0,v0,projn=_uv_basis(n,f)
         c=math.cos(rot); s=math.sin(rot)
         U=[c*u0[i]+s*v0[i] for i in range(3)]
         V=[-s*u0[i]+c*v0[i] for i in range(3)]
         t=unreal.Transform()
-        t.set_editor_property("rotation", _quat_from_axes([U,V,list(n)]))
+        t.set_editor_property("rotation", _quat_from_axes([U,V,projn]))
         # projection origin at world 0 + record offset + a global half-tile correction (Dark vs UE)
         su=-1.0 if MIRROR_TEX_U else 1.0                 # mirror U (level is Y-reflected)
         if f.get("solid"): su=-su                         # solid (union) faces flip opposite to air carves
@@ -707,22 +708,35 @@ def _pt_in_poly(c, poly, n, tol=1.5):
         elif cr<-tol: neg=True
     return not (pos and neg)
 
+def _uv_basis(n, f):
+    """Return (u0, v0, projn) for the planar projection frame. Caps project straight down Z; cylinder
+    sides AND wedge slants project from their DOMINANT world axis (Dark's behaviour -> tilted faces
+    stretch by 1/cos(angle-to-axis)); box walls project perpendicular to the face."""
+    if f.get("uaxis"):                                      # rotated brush: axes baked from the LOCAL frame.
+        # The Y-reflection makes [uaxis,vaxis,n] LEFT-handed -> planar projection collapses (solid colour).
+        # Negate U to get a right-handed frame; the standard su=-1 mirror restores the true U direction.
+        u=f["uaxis"]; return [-u[0],-u[1],-u[2]], list(f["vaxis"]), list(n)
+    if abs(n[2])>0.99:                                       # axis-aligned cap
+        return [1.0,0.0,0.0], [0.0, 1.0 if n[2]>0 else -1.0, 0.0], list(n)
+    if f.get("cylside") or f.get("slant"):                  # project from dominant world axis (stretch)
+        ax=0 if (abs(n[0])>=abs(n[1]) and abs(n[0])>=abs(n[2])) else (1 if abs(n[1])>=abs(n[2]) else 2)
+        s=1.0 if n[ax]>=0 else -1.0
+        if   ax==0: return [0.0,s,0.0], [0.0,0.0,1.0], [s,0.0,0.0]
+        elif ax==1: return [-s,0.0,0.0], [0.0,0.0,1.0], [0.0,s,0.0]
+        else:       return [1.0,0.0,0.0], [0.0,s,0.0], [0.0,0.0,s]   # Z-dominant slant (cap-like, stretched)
+    u0=_norm(_cross([0.0,0.0,1.0], n)); v0=_norm(_cross(n,u0))       # box wall perpendicular
+    return u0, v0, list(n)
+
 def _face_uv_transform(f):
     n=f["n"]; sc=int(f.get("sc",16)); res=_face_res(f.get("tex"))
     tile=res*(2.0**(sc-20))*FEET_CM
     rot=math.radians(float(f.get("rot",0.0) or 0.0))+math.pi
+    if f.get("uaxis"): rot-=math.pi/2                 # baked cap frame is 90 deg off (mirror flips sense) -> correct it
+    if f.get("capleg"): rot+=math.pi/2                # cap from the -Y leg (not extrude axis) is a further 90 CCW
+    if f.get("capleg_rot"): rot-=math.pi/2           # heading-rotated leg cap (id6): undo the heading-induced 90
+    if f.get("solid") and abs(n[2])>0.99 and not f.get("uaxis"): rot+=math.pi   # solid horiz cap seen from opposite side -> 180
     uoff=float(f.get("uoff",0.0) or 0.0)/res; voff=-float(f.get("voff",0.0) or 0.0)/res
-    projn=list(n)
-    if abs(n[2])>0.99:                                # cap: project straight down the Z normal
-        u0=[1.0,0.0,0.0]; v0=[0.0, 1.0 if n[2]>0 else -1.0, 0.0]
-    elif f.get("cylside"):                            # cylinder side: Dark projects from the DOMINANT world
-        # axis (X or Y), not perpendicular -> tilted facets stretch horizontally by 1/cos(angle-to-axis).
-        if abs(n[0])>=abs(n[1]):
-            sx=1.0 if n[0]>=0 else -1.0; projn=[sx,0.0,0.0]; u0=[0.0,sx,0.0]; v0=[0.0,0.0,1.0]
-        else:
-            sy=1.0 if n[1]>=0 else -1.0; projn=[0.0,sy,0.0]; u0=[-sy,0.0,0.0]; v0=[0.0,0.0,1.0]
-    else:                                             # box wall: project perpendicular to the face
-        u0=_norm(_cross([0.0,0.0,1.0], n)); v0=_norm(_cross(n,u0))
+    u0,v0,projn=_uv_basis(n,f)
     c=math.cos(rot); s=math.sin(rot)
     U=[c*u0[i]+s*v0[i] for i in range(3)]; V=[-s*u0[i]+c*v0[i] for i in range(3)]
     t=unreal.Transform(); t.set_editor_property("rotation", _quat_from_axes([U,V,projn]))
@@ -900,14 +914,20 @@ def retag_final(mesh, body):
             groups.setdefault(id(best),(best,[]))[1].append(tid); matched+=1
     unreal.log("  retag: %d/%d tris matched to %d faces"%(matched,tc,len(groups)))
     if GUV_PLN and (GSEL_IDX or GSEL_BOX):
-        okc=0; nosel=0; noproj=0
+        okc=0; nosel=0; noproj=0; skipflat=0
         for fid,(f,tids) in groups.items():
+            # ONLY cylinder curved sides need post-boolean re-projection (their planar UVs don't survive
+            # the boolean). Every FLAT face - box walls, floors, wedge slants and caps - keeps its clean
+            # per-primitive UV, which DOES survive. The box selection is an axis-aligned AABB, so it
+            # over-grabs neighbours for any tilted / triangular face (the streak/line artifacts); cylinder
+            # facets are thin vertical strips so their AABB stays tight.
+            if not f.get("cylside"): skipflat+=1; continue
             sel=_selection_from_ids(mesh,tids) or _selection_from_box(mesh,f)   # box = crash-safe path
             if sel is None: nosel+=1; continue
             if _planar_uv(mesh,sel,_face_uv_transform(f)): okc+=1
             else: noproj+=1
-        unreal.log("  retag UV: %d/%d faces projected (selection-failed=%d, projection-failed=%d)"
-                   %(okc,len(groups),nosel,noproj))
+        unreal.log("  retag UV: %d/%d cyl-side faces projected (selection-failed=%d, projection-failed=%d, flat-kept=%d)"
+                   %(okc,len(groups),nosel,noproj,skipflat))
 
 def assign_materials(sm):
     if not _TEX_OK[0]: return

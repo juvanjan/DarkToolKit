@@ -136,10 +136,13 @@ def _slot_for(shape, nl):
         if ax==2: return 4 if sgn>0 else 5     # (unused: cylinders routed to _cyl_slot in faces_for)
         return 0
     if shape=="wedge":
-        if ax==0: return 0 if sgn>0 else 1      # +X / -X caps
-        if nl[1]<-0.3 and abs(nl[2])<0.3: return 2   # -Y leg
-        if nl[2]<-0.3 and abs(nl[1])<0.3: return 3   # -Z leg
-        return 4                                # hypotenuse (mixed +Y/+Z normal)
+        # Dark wedge record order (verified vs DromEd): 0 hypotenuse(top slant), 1 -Z(bottom),
+        #   2 -Y(vertical side), 3 +X cap, 4 -X cap.  (If the two triangle caps come out swapped,
+        #   flip the 3/4 return.)
+        if ax==0: return 3 if sgn>0 else 4           # +X cap -> 3, -X cap -> 4
+        if nl[2]<-0.3 and abs(nl[1])<0.3: return 1   # -Z (bottom, horizontal rect)
+        if nl[1]<-0.3 and abs(nl[2])<0.3: return 2   # -Y (side1, vertical rect)
+        return 0                                     # hypotenuse (top, slanted; mixed +Y/+Z normal)
     # box: Dark cube face order (verified vs DromEd COORDINATE readout, 4-distinct-wall brush):
     #   0:-X  1:-Y  2:+X  3:+Y  4:+Z  5:-Z
     return {(0,-1):0,(1,-1):1,(0,1):2,(1,1):3,(2,1):4,(2,-1):5}[(ax,sgn)]
@@ -198,10 +201,37 @@ def faces_for(b, names):
         cylside=1 if (b["shape"]=="cylinder" and not cap) else 0   # curved side: needs post-boolean UV re-projection
         solid=1 if int(b.get("op",1))==0 else 0                     # op 0 = fill SOLID (union); its faces are
                                                                     # front-facing -> opposite U-mirror vs air carves
-        faces.append(dict(n=[round(float(x),4) for x in nue], d=round(dfit,3),
-                          poly=[[round(float(x),2) for x in p] for p in poly], cap=cap, cylside=cylside, solid=solid,
-                          tex=resolve(slot), sc=resolve_scale(slot), rot=round(resolve_rot(slot),3),
-                          uoff=resolve_off(fuof,slot), voff=resolve_off(fvof,slot)))
+        slant=1 if (b["shape"]=="wedge" and slot==0) else 0         # wedge hypotenuse (slot 0): half-tile V phase
+        fd=dict(n=[round(float(x),4) for x in nue], d=round(dfit,3),
+                poly=[[round(float(x),2) for x in p] for p in poly], cap=cap, cylside=cylside, solid=solid,
+                slant=slant,
+                tex=resolve(slot), sc=resolve_scale(slot), rot=round(resolve_rot(slot),3),
+                uoff=resolve_off(fuof,slot), voff=resolve_off(fvof,slot))
+        # ROTATED brushes, WORLD-HORIZONTAL (cap) faces only: build picks the cap U/V by a fixed world axis,
+        # which ignores the brush rotation (a pitched wedge's triangle cap comes out mis-rotated). Vertical
+        # faces are fine on the world-based path (that's how Dark works), so we leave them alone. For the
+        # ambiguous cap we bake the texture axes from the LOCAL normal, transformed by R and the Y-reflection.
+        if (abs(b["H"])>0.5 or abs(b["P"])>0.5 or abs(b["B"])>0.5) and abs(nue[2])>0.99 and not cylside and not slant:
+            if abs(nl[2])>0.99: lu=np.array([1.0,0.0,0.0]); lv=np.array([0.0,1.0 if nl[2]>0 else -1.0,0.0])
+            else:
+                lu=np.cross([0.0,0.0,1.0],nl); lu=lu/(np.linalg.norm(lu) or 1.0)
+                lv=np.cross(nl,lu);          lv=lv/(np.linalg.norm(lv) or 1.0)
+            ua=F_REFLECT*(R@lu); va=F_REFLECT*(R@lv)
+            # The build-side -90 cap correction assumes the extrude axis maps to world -Z. When it maps to
+            # +Z (e.g. pitch 270 vs 90) the cap frame is flipped 180 deg; fold that in by rotating the axes.
+            if float((R@np.array([1.0,0.0,0.0]))[2])>0.0: ua=-ua; va=-va
+            # The build +90 cap correction is calibrated for caps that come from the EXTRUDE axis (local +/-X,
+            # local U along Y). A cap that comes from the -Y leg (local U along X) is a further 90 deg off.
+            if abs(nl[0])<0.9:
+                fd["capleg"]=1
+                # id5 (H=0) has its extrude axis along world X and comes out correct with the uniform build
+                # +90 correction. id6 (H=90) has heading rotate the extrude axis onto world Y; that heading
+                # rotation leaves its leg cap "rotated 90 + flipped" relative to correct. Flag the heading-
+                # rotated leg cap so the builder can undo it (rotate -90 + mirror U).
+                rx=R@np.array([1.0,0.0,0.0])
+                if abs(float(rx[0]))<0.5: fd["capleg_rot"]=1
+            fd["uaxis"]=[round(float(x),4) for x in ua]; fd["vaxis"]=[round(float(x),4) for x in va]
+        faces.append(fd)
     return faces
 
 def _order_poly(pts, n):

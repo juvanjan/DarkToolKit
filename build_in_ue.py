@@ -26,10 +26,13 @@
 
 import unreal, json, math
 
-GEO_PATH    = r"C:\Nex\DarkSimProject\DarkSimToolkit\test_missions\10_geo.json"   # <-- SET (the *_geo.json)
+GEO_PATH    = r"C:\Nex\DarkSimProject\DarkSimToolkit\test_missions\13_geo.json"   # <-- SET (the *_geo.json)
 ASSET_PATH  = r"/Game/Mission/SM_Mission"
 BUILD_WATER = True        # also bake the water volume as a separate static mesh (SM_..._Water)
 BUILD_COLLISION = True    # give the mesh collision (complex-as-simple: the triangles ARE the collision)
+BUILD_WORLD_BOX = True    # True: start from the enclosing solid cuboid (brush 0) and carve into it (Dark
+                          #   default). False: start EMPTY - only additive/solid brushes appear, air carves
+                          #   have nothing to cut (useful to preview individual brushes without the shell).
 TEST_LIMIT  = 0           # 0 = full mission; >0 = world solid + first N brushes (quick preview)
 UV_TILE_CM  = 64.0        # world-space texture tile size (one texture repeat per this many cm)
                           #   calibrated to Dark scale 16 (~2.1 ft/tile). Halve it -> texture bigger.
@@ -998,8 +1001,12 @@ def run():
     if TEST_LIMIT: body=body[:TEST_LIMIT]
     unreal.log("Media CSG (primitives): %d brushes, water=%s"%(len(body),BUILD_WATER))
     O=BoolOpts()
-    result=mk(world)          # start fully solid (the enclosing world box)
-    unreal.log("  world solid tris=%s"%tri_count(result))
+    if BUILD_WORLD_BOX:
+        result=mk(world)      # start fully solid (the enclosing world box), then carve into it
+        unreal.log("  world solid tris=%s"%tri_count(result))
+    else:
+        result=new_mesh()     # start EMPTY: no enclosing cuboid; only additive brushes contribute
+        unreal.log("  world box SKIPPED (BUILD_WORLD_BOX=False) - starting from empty mesh")
     WATER=new_mesh()
     fails=[0]; first_err=[None]
     def BOP(tgt,tool,op): GB.apply_mesh_boolean(tgt,I,tool,I,op,O)

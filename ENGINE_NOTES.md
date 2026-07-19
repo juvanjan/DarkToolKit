@@ -251,6 +251,40 @@ Y where Dark chooses +Z. Same U, same V slope, different constant → a pure tex
 Mapping into the build's conventions: `u0 = -su·F·U_dark`, `v0 = -F·V_dark`, `projn = u0 × v0`.
 Verified: reproduces Dark on 12/12 slant faces; changes 3 of 325 faces overall.
 
+### 🔴 The boolean returns a WELDED UV overlay — faces overwrite each other
+The worst bug found in this project. It affected **every mission ever built**, including ones we
+signed off as correct.
+
+`apply_mesh_boolean` returns a mesh whose UV overlay is welded: faces sharing a vertex share its UV
+element, with no seam between them. Each per-face planar projection therefore writes onto its
+neighbours, and **the last face projected wins at every shared vertex**:
+
+- **Horizontal faces survive** — their UVs are a function of (x, y), which varies across the face
+  no matter which projection wrote it.
+- **Vertical faces collapse** — their corners get UVs from an adjacent horizontal projection, and on
+  a wall x and y are constant as you move up, so the UV stops varying. Zero UV area = barcode stripes.
+
+Measured on MISS5_mod2: zero-UV-area 125/151 on X, 130/170 on Y, 0/167 on Z. Proven by setting
+`RETAG_UV_ONLY="vertical"`, which inverted it exactly (X 5, Y 0, Z 163). Only shared elements can
+produce an inversion like that.
+
+**Fix: `rebuild_unwelded()`.** After the boolean and retag, the final mesh is rebuilt so every
+triangle owns its own three vertices, with UVs computed analytically by `_face_uv_at()` —
+`u = U.p/(su*tile) - uu/su`, `v = V.p/tile - vv` — the closed form of the planar projection the
+transform encoded. Nothing is shared, so nothing can be clobbered.
+Result: 259/504 collapsed -> **10/504**. Vertex count roughly triples; the static-mesh
+"nearly zero tangents / bi-normals" warnings disappear (they were a symptom of the same overlay).
+The residual 10 are triangles `retag` could not match to a face (`unmatched tris=36`).
+
+**The old claim that "flat faces' per-primitive planar UVs survive the boolean" is FALSE.** That
+assumption lived in `retag_final` and is why only cylinder sides were ever re-projected.
+
+**Debugging lesson worth keeping:** several rounds were lost to instruments that measured the wrong
+thing. "The projection call did not raise" was read as "the UVs are correct", and a UV self-check
+sampled the whole brush instead of one face, returning a constant that looked like a smoking gun.
+Validate the instrument before trusting it. The check that finally worked compares **UV area to world
+area**, which is independent of triangle shape and so cannot confuse a sliver with a collapse.
+
 ### 🔴 mk_buffer winding — UE wants the OPPOSITE handedness
 `mk_buffer` is the only path that hands UE raw triangles; every other shape comes from a
 GeometryScript primitive that generates UE-correct winding itself. So this was never exercised until

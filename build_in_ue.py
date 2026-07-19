@@ -26,11 +26,11 @@
 
 import unreal, json, math
 
-GEO_PATH    = r"C:\Nex\DarkSimProject\DarkSimToolkit\test_missions\11_geo.json"   # <-- SET (the *_geo.json)
+GEO_PATH    = r"C:\Nex\DarkSimProject\DarkSimToolkit\test_missions\MISS5_mod2_geo.json"   # <-- SET (the *_geo.json)
 ASSET_PATH  = r"/Game/Mission/SM_Mission"
 BUILD_WATER = True        # also bake the water volume as a separate static mesh (SM_..._Water)
 BUILD_COLLISION = True    # give the mesh collision (complex-as-simple: the triangles ARE the collision)
-BUILD_WORLD_BOX = True    # True: start from the enclosing solid cuboid (brush 0) and carve into it (Dark
+BUILD_WORLD_BOX = True     # True: start from the enclosing solid cuboid (brush 0) and carve into it (Dark
                           #   default). False: start EMPTY - only additive/solid brushes appear, air carves
                           #   have nothing to cut (useful to preview individual brushes without the shell).
 TEST_LIMIT  = 0           # 0 = full mission; >0 = world solid + first N brushes (quick preview)
@@ -90,7 +90,10 @@ _BO=_type("GeometryScriptBooleanOperation","BooleanOperation")
 UNION,SUBTRACT,INTERSECT=_BO.UNION,_BO.SUBTRACT,_BO.INTERSECTION
 _PO=_type("GeometryScriptPrimitiveOriginMode","PrimitiveOriginMode",opt=True)
 ORIGIN_CENTER=getattr(_PO,"CENTER",None) if _PO else None
-_NLIB,_NFN=method_like("recompute","normal"); _UVLIB,_UVFN=method_like("uv","projection")
+_NLIB,_NFN=method_like("recompute","normal")
+# NOTE: UE spells these set_mesh_u_vs_from_* -> the substring is "u_vs", NOT "uv". method_like("uv",..)
+# silently matched nothing, so this lib was None for the whole project's life (log: "uvs=False (no lib)").
+_UVLIB,_UVFN=method_like("u_vs","box","projection")
 I=unreal.Transform()
 
 def new_mesh():
@@ -106,14 +109,36 @@ def tri_count(m):
         try: return getattr(_TCLIB,_TCFN)(m)
         except Exception: pass
     return -1
-def ensure_uv_normals(m):
+_EUVLOG=[False]
+def ensure_uv_normals(m, uvs=True):
+    """Seed the normal (and optionally UV) attribute overlays.
+
+    `uvs=False` matters: _UVFN is resolved by NAME (method_like("uv","projection")), so it can land on
+    set_mesh_uvs_from_PLANAR_projection. Run over a whole level at identity transform that projects
+    everything down one axis - horizontal faces get a (densely tiled) mapping while VERTICAL faces are
+    edge-on and collapse to a line, i.e. barcode stripes. Harmless when called on a fresh buffer mesh
+    before apply_face_uvs overwrites it; destructive when called on the finished mesh AFTER all the
+    per-face projections. The final-assembly call now passes uvs=False for exactly that reason."""
+    nok=uok=False
     if _NLIB:
-        try: getattr(_NLIB,_NFN)(m)
-        except Exception: pass
-    if _UVLIB:
-        for a in ((m,0,I),(m,0,None,I),(m,I),(m,0)):
-            try: getattr(_UVLIB,_UVFN)(*a); break
+        for a in ((m,),(m,None),(m,None,None),(m,unreal.GeometryScriptCalculateNormalsOptions())
+                  if hasattr(unreal,"GeometryScriptCalculateNormalsOptions") else (m,)):
+            try: getattr(_NLIB,_NFN)(*(a if isinstance(a,tuple) else (a,))); nok=True; break
             except Exception: continue
+    if uvs and _UVLIB:
+        # Use a WORLD-SCALED transform, never the identity. _UVFN is resolved by name and its transform
+        # maps world units -> UV units, so identity means ONE TEXTURE REPEAT PER CENTIMETRE: on a 5 m
+        # wall that is 500 repeats, which aliases on screen into exactly the fine stripes / "barcode"
+        # look. UV_TILE_CM gives one repeat per tile instead.
+        tf=unreal.Transform()
+        tf.set_editor_property("scale3d", unreal.Vector(UV_TILE_CM,UV_TILE_CM,UV_TILE_CM))
+        for a in ((m,0,tf),(m,0,None,tf),(m,tf),(m,0)):
+            try: getattr(_UVLIB,_UVFN)(*a); uok=True; break
+            except Exception: continue
+    if not _EUVLOG[0]:
+        _EUVLOG[0]=True
+        unreal.log("  ensure_uv_normals: normals=%s (%s)  uvs=%s (%s)"%(nok,_NFN or "no lib",uok,_UVFN or "no lib"))
+    return nok,uok
 
 # ---------------------------------------------------------------- recover an oriented box from 8 verts
 def _eig_sym3(A):
@@ -302,6 +327,9 @@ def recover_cylinder(verts,tris):
     A,Bc,Cc=_solve3(M,Y); H=Bc/2.0
     tr=A+Cc; disc=max(0.0,(tr/2)**2-(A*Cc-H*H))
     l1=tr/2+math.sqrt(disc); l2=tr/2-math.sqrt(disc)   # l2 = smaller eigenvalue -> MAJOR axis
+    # A degenerate / near-zero-radius cross-section makes an eigenvalue <= 0, and 1/sqrt() then raised
+    # "math domain error" -> the whole cylinder fell back to the raw buffer path. Clamp instead.
+    if l1<=1e-12 or l2<=1e-12: return None
     a=1.0/math.sqrt(l2); bmin=1.0/math.sqrt(l1)
     # eigenvector of the conic matrix [[A,H],[H,C]] for l2 gives the TRUE major direction
     # (the old atan2 angle mis-assigned major vs minor for eccentric ellipses -> wrong rotation).
@@ -413,6 +441,17 @@ GTRIIDS,_ALLTRI = _find(["get_all_triangle_i_ds"],"all","triangle","id")
 GTRIPOS,_TRIPOS = _find(["get_triangle_positions"],"triangle","positions")
 GSEL_IDX,_SELIDX = _find(["convert_index_list_to_mesh_selection","convert_index_array_to_mesh_selection"],"index","selection")
 GSEL_BOX,_SELBOX = _find(["select_mesh_elements_in_box"],"select","box")   # geometric per-face selection (crash-safe)
+# Diagnostic: restrict the POST-BOOLEAN re-projection to one face orientation.
+#   ""          re-project every face (normal behaviour)
+#   "vertical"  only faces with a horizontal normal
+#   "horizontal" only faces with a vertical normal
+# If the boolean's UV overlay is WELDED (faces sharing a vertex share its UV element, last write wins),
+# then "vertical" should make walls correct and floors collapse - the exact inverse of what we see now.
+# That inversion is the proof; a partial change means something else is going on.
+RETAG_UV_ONLY = ""           # diagnostic (see above); "" = normal
+REBUILD_UNWELDED = True      # rebuild the final mesh with per-triangle vertices + analytic UVs. This
+                             # is the real fix for the welded-overlay problem; set False to compare.
+
 FINAL_RETAG = True        # after boolean, re-assign each face the LATEST brush covering it (Dark override)
 _PERFACE_UV=[BUILD_TEXTURES]   # per-face planar UVs at exact Dark scale (px * 2^(sc-20) ft per tile)
 _PERFACE_LOGGED=[False]
@@ -621,6 +660,41 @@ def _select_by_normal(mesh, nv, angle=15.0):
         except Exception: continue
     return None
 
+GSELINFO,_SELINFO=_find(["get_mesh_selection_info"],"selection","info")
+_SELCHK={"n":0,"bad":0,"eg":[]}
+def sel_selfcheck(mesh, sel, f):
+    """Confirm the selection really is ONE face and not the whole mesh."""
+    if GSELINFO is None or _SELCHK["n"]>=40: return
+    cnt=None
+    for call in ((sel,),(mesh,sel),(sel,True)):
+        try:
+            r=getattr(GSELINFO,_SELINFO)(*call)
+            vals=[x for x in (r if isinstance(r,(tuple,list)) else [r]) if isinstance(x,int)]
+            if vals: cnt=max(vals); break
+        except Exception: continue
+    if cnt is None: return
+    tc=tri_count(mesh); _SELCHK["n"]+=1
+    n=f.get("n",[0,0,0])
+    ax="X" if abs(n[0])>0.9 else ("Y" if abs(n[1])>0.9 else ("Z" if abs(n[2])>0.9 else "tilted"))
+    whole = (tc>0 and cnt>=tc)
+    if whole or cnt==0:
+        _SELCHK["bad"]+=1
+        if len(_SELCHK["eg"])<10:
+            _SELCHK["eg"].append("normal~%-6s tex=%-10s selection=%d tris of %d in mesh  <-- %s"%(
+                ax,f.get("tex"),cnt,tc,"WHOLE MESH (projection not restricted!)" if whole else "EMPTY"))
+    elif len(_SELCHK["eg"])<10:
+        _SELCHK["eg"].append("normal~%-6s tex=%-10s selection=%d tris of %d in mesh  ok"%(ax,f.get("tex"),cnt,tc))
+
+def sel_selfcheck_report():
+    if GSELINFO is None:
+        unreal.log_warning("Selection self-check: get_mesh_selection_info unavailable - skipped"); return
+    unreal.log("Selection self-check: sampled %d faces, %d not restricted to one face"%(_SELCHK["n"],_SELCHK["bad"]))
+    for e in _SELCHK["eg"]: unreal.log("    %s"%e)
+    if _SELCHK["bad"]:
+        unreal.log_error("    ^ ROOT CAUSE: an unrestricted selection makes the planar projection apply to")
+        unreal.log_error("      the ENTIRE brush, so the LAST face processed wins. On a box that is the top")
+        unreal.log_error("      face, whose Z projection is edge-on to all four sides -> stripes down them.")
+
 def _safe_cone(faces, default=15.0):
     """Half-angle for select-by-normal, shrunk so a selection can only ever hit ONE face.
     A fixed 15 deg cone over-grabs on densely faceted brushes - a 14-gon pyramid's sides are 14.4 deg
@@ -678,7 +752,11 @@ def apply_face_uvs(mesh, b):
         uoff=float(f.get("uoff",0.0) or 0.0)/res            # texels -> tile fraction
         voff=-float(f.get("voff",0.0) or 0.0)/res           # V offset runs opposite to U (verified vs DromEd)
         sel=_select_by_normal(mesh,nv,cone)
-        if sel is None: _PERFACE_UV[0]=False; unreal.log_warning("  per-face UV: no normal selection; using global box UV"); return
+        if sel is None:
+            # Skip THIS face, keep going. This used to set _PERFACE_UV[0]=False and return, which on a
+            # 4310-brush mission meant one bad face left every later brush with raw primitive UVs.
+            _UVFAIL[0]+=1; _UVFAIL_EG.append("brush %s face %s: no normal selection"%(b.get("id"),f.get("tex")))
+            continue
         # CONSISTENT in-plane axes; the frame [U,V,projn] MUST be right-handed or the projection collapses.
         # Caps -> Z; cylinder sides & wedge slants -> dominant world axis (stretch); walls -> perpendicular.
         u0,v0,projn=_uv_basis(n,f)
@@ -700,15 +778,131 @@ def apply_face_uvs(mesh, b):
             try: getattr(GUV_PLN,_UVPLN)(*call); ok=True; break
             except Exception as e: err=e; continue
         if not ok:
-            _PERFACE_UV[0]=False
-            unreal.log_warning("  per-face UV: planar projection failed (%s); using global box UV"%err); return
+            _UVFAIL[0]+=1; _UVFAIL_EG.append("brush %s face %s: projection failed (%s)"%(b.get("id"),f.get("tex"),err))
+            continue                                     # skip this face only, do not disable globally
         _okn[0]+=1
+        sel_selfcheck(mesh, sel, f)
+        uv_selfcheck(mesh, f)
         if not _PERFACE_LOGGED[0]:
             _PERFACE_LOGGED[0]=True
             unreal.log("  per-face UV OK (e.g. %s sc=%d -> tile=%.0fcm)"%(f.get("tex"),sc,tile))
     if b.get("shape") not in ("box","wedge","cylinder"):     # buffer-built: report explicitly
         unreal.log("  %s id%s: %d/%d faces projected (cone %.2f deg)"
                    %(b.get("shape"), b.get("id"), _okn[0], len(faces), cone))
+
+# ---- UV self-check ---------------------------------------------------------------------------------
+# The build reports "per-face UV OK" purely because the projection CALL returned without raising. That
+# says nothing about whether the resulting UVs actually vary across the face - a collapsed projection
+# succeeds silently and renders as barcode stripes. Read the UVs back for the first few faces of each
+# orientation and measure their spread, so a collapse is reported instead of shipped.
+GUVQ,_GETUV=_find(["get_triangle_u_vs"],"triangle","u_vs")
+_UVCHK={"n":0,"bad":0,"eg":[]}
+def _read_tri_uv(mesh, tid):
+    """(uv0,uv1,uv2) for a triangle, or None. Single signature: (target_mesh, uv_set_index, tri_id)."""
+    try:
+        r=getattr(GUVQ,_GETUV)(mesh,0,tid)
+        pts=[x for x in (r if isinstance(r,(tuple,list)) else [r]) if hasattr(x,"x")]
+        return [(p.x,p.y) for p in pts] if len(pts)>=3 else None
+    except Exception:
+        return None
+
+def final_uv_check(mesh):
+    """Measure the FINISHED mesh with a SHAPE-INDEPENDENT test.
+
+    The previous metric was the per-triangle UV aspect ratio (min/max spread). That flags any sliver
+    triangle, and the boolean shreds walls into slivers far more than floors - so it could not tell
+    'collapsed UVs' apart from 'thin triangle'. Instead compare UV AREA to WORLD AREA: a projection
+    that has collapsed onto a line has zero UV area whatever the triangle's shape, while a healthy
+    projection gives uv_area/world_area ~ 1/tile^2 (in 1/cm^2). Reported as texels-per-metre so the
+    numbers are readable, and as a spread so a wrong SCALE is visible too."""
+    if GUVQ is None or GQ_NORM is None or GTRIPOS is None: return
+    tc=tri_count(mesh)
+    if not tc or tc<1: return
+    import math as _m
+    buckets={}
+    step=max(1,tc//400)
+    for tid in range(0,tc,step):
+        uv=_read_tri_uv(mesh,tid)
+        if not uv: continue
+        n=_tri_normal(mesh,tid)
+        if n is None: continue
+        try:
+            r=getattr(GTRIPOS,_TRIPOS)(mesh,tid)
+            pos=[x for x in (r if isinstance(r,(tuple,list)) else [r]) if hasattr(x,"x")]
+        except Exception: continue
+        if len(pos)<3: continue
+        # world area
+        e1=(pos[1].x-pos[0].x,pos[1].y-pos[0].y,pos[1].z-pos[0].z)
+        e2=(pos[2].x-pos[0].x,pos[2].y-pos[0].y,pos[2].z-pos[0].z)
+        cx=(e1[1]*e2[2]-e1[2]*e2[1], e1[2]*e2[0]-e1[0]*e2[2], e1[0]*e2[1]-e1[1]*e2[0])
+        wa=0.5*_m.sqrt(cx[0]**2+cx[1]**2+cx[2]**2)
+        if wa<1e-6: continue
+        # uv area
+        ua=0.5*abs((uv[1][0]-uv[0][0])*(uv[2][1]-uv[0][1])-(uv[2][0]-uv[0][0])*(uv[1][1]-uv[0][1]))
+        ax="X" if abs(n.x)>0.9 else ("Y" if abs(n.y)>0.9 else ("Z" if abs(n.z)>0.9 else "tilted"))
+        bkt=buckets.setdefault(ax,{"n":0,"dead":0,"rep":[]})
+        bkt["n"]+=1
+        # tiles per metre = sqrt(uv_area/world_area) * 100
+        tpm=_m.sqrt(ua/wa)*100.0
+        if tpm<0.01: bkt["dead"]+=1
+        else: bkt["rep"].append(tpm)
+    unreal.log("FINAL-MESH UV check (shape-independent: UV area vs world area):")
+    tot=dead=0
+    for ax in ("X","Y","Z","tilted"):
+        bkt=buckets.get(ax)
+        if not bkt: continue
+        tot+=bkt["n"]; dead+=bkt["dead"]
+        rs=sorted(bkt["rep"]); med=rs[len(rs)//2] if rs else 0.0
+        lo=rs[0] if rs else 0.0; hi=rs[-1] if rs else 0.0
+        flag="  <-- COLLAPSED (zero UV area = barcode)" if bkt["dead"]*2>bkt["n"] else ""
+        unreal.log("   normal~%-6s tris=%-5d zero-UV-area=%-5d  tiles/m median %.3f (range %.3f-%.3f)%s"
+                   %(ax,bkt["n"],bkt["dead"],med,lo,hi,flag))
+    if dead: unreal.log_error("   %d/%d triangles have ZERO UV area - genuinely collapsed."%(dead,tot))
+    else:    unreal.log("   No collapsed UVs. All %d sampled triangles have real UV area."%tot)
+    unreal.log("   (a correct face tiles at 100/tile_cm per metre: tile 122cm -> 0.82, 488cm -> 0.20)")
+
+def uv_selfcheck(mesh, f, tid_hint=None):
+    if GUVQ is None or _UVCHK["n"]>=60: return
+    tc=tri_count(mesh)
+    if not tc or tc<1: return
+    uvs=[]
+    for tid in range(min(tc,12)):
+        for call in ((mesh,0,tid),(mesh,tid,0),(mesh,0,tid,True)):
+            try:
+                r=getattr(GUVQ,_GETUV)(*call)
+                pts=[x for x in (r if isinstance(r,(tuple,list)) else [r]) if hasattr(x,"x")]
+                if pts: uvs.extend([(p.x,p.y) for p in pts]); break
+            except Exception: continue
+    if len(uvs)<3: return
+    du=max(u for u,_ in uvs)-min(u for u,_ in uvs)
+    dv=max(v for _,v in uvs)-min(v for _,v in uvs)
+    _UVCHK["n"]+=1
+    n=f.get("n",[0,0,0])
+    ax="X" if abs(n[0])>0.9 else ("Y" if abs(n[1])>0.9 else ("Z" if abs(n[2])>0.9 else "tilted"))
+    if du<1e-5 or dv<1e-5:
+        _UVCHK["bad"]+=1
+        if len(_UVCHK["eg"])<12:
+            _UVCHK["eg"].append("normal~%s tex=%s  U spread %.6f  V spread %.6f  <-- COLLAPSED"%(ax,f.get("tex"),du,dv))
+    elif len(_UVCHK["eg"])<12:
+        _UVCHK["eg"].append("normal~%s tex=%s  U spread %.4f  V spread %.4f  ok"%(ax,f.get("tex"),du,dv))
+
+def uv_selfcheck_report():
+    if GUVQ is None:
+        unreal.log_warning("UV self-check: no get_triangle_u_vs - skipped"); return
+    unreal.log("UV self-check: sampled %d faces, %d COLLAPSED"%(_UVCHK["n"],_UVCHK["bad"]))
+    for e in _UVCHK["eg"]: unreal.log("    %s"%e)
+    if _UVCHK["bad"]:
+        unreal.log_error("    ^ collapsed faces are the barcodes. The projection frame for those")
+        unreal.log_error("      orientations is wrong (U or V has no gradient across the face).")
+
+_UVFAIL=[0]; _UVFAIL_EG=[]
+def uv_fail_report():
+    if not _UVFAIL[0]:
+        unreal.log("Per-face UV: no failures"); return
+    unreal.log_warning("Per-face UV: %d face(s) FAILED and kept their primitive UVs "
+                       "(these are the ones that look stretched / barcoded):"%_UVFAIL[0])
+    for e in _UVFAIL_EG[:10]: unreal.log_warning("    %s"%e)
+    if len(_UVFAIL_EG)>10: unreal.log_warning("    ... and %d more"%(len(_UVFAIL_EG)-10))
 
 _CYLUV_LOGGED=[False]
 def apply_cyl_face_uvs(mesh, b):
@@ -961,6 +1155,85 @@ def _selection_from_box(mesh, f):
         if _BOXDBG[0]<1: _BOXDBG[0]=1; unreal.log_warning("  _selection_from_box error: %s"%e)
     return None
 
+
+def _face_uv_at(f, p):
+    """UV for world point p under face f - the analytic form of the planar projection we were asking
+    GeometryScript to do. Derivation: the transform is rotation R=[U,V,projn], scale S=(su*tile,tile,1),
+    translation T=(uu*tile)U+(vv*tile)V, and a planar projection maps p -> S^-1 R^-1 (p-T), so
+        u = U.p/(su*tile) - uu/su      v = V.p/tile - vv
+    Computing it here means every vertex gets its own UV: nothing is shared, nothing can be clobbered."""
+    n=f["n"]; sc=int(f.get("sc",16)); res=_face_res(f.get("tex"))
+    tile=res*(2.0**(sc-20))*FEET_CM
+    rot=math.radians(float(f.get("rot",0.0) or 0.0))+math.pi
+    if f.get("uaxis"): rot-=math.pi/2
+    if f.get("capleg"): rot+=math.pi/2
+    if f.get("capleg_rot"): rot-=math.pi/2
+    if f.get("solid") and abs(n[2])>0.99 and not f.get("uaxis"): rot+=math.pi
+    uoff=float(f.get("uoff",0.0) or 0.0)/res; voff=-float(f.get("voff",0.0) or 0.0)/res
+    u0,v0,projn=_uv_basis(n,f)
+    c=math.cos(rot); sn=math.sin(rot)
+    U=[c*u0[i]+sn*v0[i] for i in range(3)]; V=[-sn*u0[i]+c*v0[i] for i in range(3)]
+    su=_su_for(f) if "_su_for" in globals() else (-1.0 if MIRROR_TEX_U else 1.0)
+    if "_su_for" not in globals():
+        if f.get("solid"): su=-su
+        if f.get("cylside"): su=-su
+    uu=(uoff+TEX_SHIFT_U)*su; vv=voff+TEX_SHIFT_V
+    return ((U[0]*p[0]+U[1]*p[1]+U[2]*p[2])/(su*tile) - uu/su,
+            (V[0]*p[0]+V[1]*p[1]+V[2]*p[2])/tile      - vv)
+
+def rebuild_unwelded(mesh, tri2face):
+    """Rebuild the finished mesh with every triangle owning its own 3 vertices, UVs computed here.
+
+    WHY: the boolean returns a WELDED UV overlay - faces sharing a vertex share its UV element. Each
+    per-face projection therefore overwrites its neighbours and the last write wins. Horizontal faces
+    survive (their UVs vary with x/y regardless); vertical faces do not, because x/y are constant up a
+    wall, so their UVs stop varying -> zero UV area -> barcode. Proven by RETAG_UV_ONLY='vertical',
+    which inverted the symptom exactly. Unwelding removes the sharing, so the problem cannot occur."""
+    if GEDIT is None: return None
+    tc=tri_count(mesh)
+    if not tc or tc<1: return None
+    verts=[]; tris=[]; uvs=[]; mats=[]; miss=0
+    for tid in range(tc):
+        f=tri2face.get(tid)
+        try:
+            r=getattr(GTRIPOS,_TRIPOS)(mesh,tid)
+            ps=[x for x in (r if isinstance(r,(tuple,list)) else [r]) if hasattr(x,"x")]
+        except Exception: continue
+        if len(ps)<3: continue
+        base=len(verts)
+        for q in ps[:3]:
+            verts.append((q.x,q.y,q.z))
+            uvs.append(_face_uv_at(f,(q.x,q.y,q.z)) if f else (q.x/100.0,q.y/100.0))
+        tris.append((base,base+1,base+2))
+        mats.append(material_id(f["tex"]) if f and f.get("tex") else 0)
+        if f is None: miss+=1
+    if not tris: return None
+    m=new_mesh(); buf=MeshBuffers()
+    buf.set_editor_property("vertices",  [unreal.Vector(*v) for v in verts])
+    buf.set_editor_property("triangles", [unreal.IntVector(*t) for t in tris])
+    # Face normals, one per vertex. Without these UE logs "did not have normals to recompute" and
+    # falls back to per-vertex averaging, which on an unwelded mesh yields degenerate tangent bases.
+    nrm=[]
+    for (i0,i1,i2) in tris:
+        p0,p1,p2=verts[i0],verts[i1],verts[i2]
+        e1=[p1[k]-p0[k] for k in range(3)]; e2=[p2[k]-p0[k] for k in range(3)]
+        cx=_cross(e1,e2); L=math.sqrt(cx[0]**2+cx[1]**2+cx[2]**2)
+        v=[cx[0]/L,cx[1]/L,cx[2]/L] if L>1e-12 else [0.0,0.0,1.0]
+        nrm.extend([v,v,v])
+    ok=[]
+    for prop,val in (("uv0",[unreal.Vector2D(u,v) for (u,v) in uvs]),
+                     ("normals",[unreal.Vector(*v) for v in nrm]),):
+        try: buf.set_editor_property(prop,val); ok.append(prop)
+        except Exception as e: unreal.log_warning("  rebuild_unwelded: could not set %s (%s)"%(prop,e))
+    GEDIT.append_buffers_to_mesh(m, buf)
+    _enable_matids(m)
+    for i,mid in enumerate(mats):
+        if mid: _set_matid_tri(m,i,mid)
+    ensure_uv_normals(m, uvs=False)
+    unreal.log("  rebuild_unwelded: %d tris -> %d verts (unwelded), uv set: %s, unmatched tris=%d"
+               %(len(tris),len(verts),",".join(ok) or "NONE",miss))
+    return m
+
 def retag_final(mesh, body):
     """Assign each result triangle the LATEST brush face that lies on its plane and covers it
        (Dark's 'later brush wins' override; also makes texturing robust to the boolean).
@@ -1010,21 +1283,44 @@ def retag_final(mesh, body):
             _set_matid_tri(mesh,tid,material_id(best["tex"]))
             groups.setdefault(id(best),(best,[]))[1].append(tid); matched+=1
     unreal.log("  retag: %d/%d tris matched to %d faces"%(matched,tc,len(groups)))
+    tri2face={}
+    for fid,(f,tids) in groups.items():
+        for t in tids: tri2face[t]=f
+    retag_final.tri2face=tri2face
     if GUV_PLN and (GSEL_IDX or GSEL_BOX):
-        okc=0; nosel=0; noproj=0; skipflat=0
+        okc=0; nosel=0; noproj=0; skipflat=0; skiptilt=0
         for fid,(f,tids) in groups.items():
-            # ONLY cylinder curved sides need post-boolean re-projection (their planar UVs don't survive
-            # the boolean). Every FLAT face - box walls, floors, wedge slants and caps - keeps its clean
-            # per-primitive UV, which DOES survive. The box selection is an axis-aligned AABB, so it
-            # over-grabs neighbours for any tilted / triangular face (the streak/line artifacts); cylinder
-            # facets are thin vertical strips so their AABB stays tight.
-            if not f.get("cylside"): skipflat+=1; continue
-            sel=_selection_from_ids(mesh,tids) or _selection_from_box(mesh,f)   # box = crash-safe path
-            if sel is None: nosel+=1; continue
+            # RE-PROJECT EVERY FACE, not just cylinder sides.
+            #
+            # This used to skip flat faces on the assumption that their per-primitive planar UVs survive
+            # the boolean. Measured on the finished MISS5 mesh, they do not: of the sampled triangles,
+            # 127/151 with normal~X and 148/170 with normal~Y had a COLLAPSED UV axis, while normal~Z
+            # was healthy (1/167). Vertical faces lose their UVs in the boolean - which is why the top
+            # face looked right and its texture appeared to run down the sides as stripes.
+            #
+            # The old worry about over-grabbing was about the BOX (AABB) fallback. The exact
+            # triangle-ID selection built from the retag match is tried first and is not affected; only
+            # fall back to the AABB for a face whose ids we could not resolve.
+            # _selection_from_ids is a no-op project-wide (USE_INDEX_SELECTION=False - the convert_index_*
+            # functions access-violate), so the AABB path does all the real work. It is safe for an
+            # AXIS-ALIGNED face: the polygon's world AABB is a ~3cm slab containing exactly that face.
+            # The over-grab hazard in the original comment applies to TILTED / triangular faces, whose
+            # AABB balloons to enclose unrelated geometry - those keep their pre-boolean UVs, which the
+            # final-mesh measurement shows are mostly intact (3/21 flat) unlike the walls (275/321).
+            fn=f["n"]
+            if RETAG_UV_ONLY=="vertical"   and abs(fn[2])>0.5: skiptilt+=1; nosel+=1; continue
+            if RETAG_UV_ONLY=="horizontal" and abs(fn[2])<=0.5: skiptilt+=1; nosel+=1; continue
+            sel=_selection_from_ids(mesh,tids)
+            if sel is None:
+                axis_aligned = max(abs(fn[0]),abs(fn[1]),abs(fn[2])) > 0.99
+                if f.get("cylside") or axis_aligned: sel=_selection_from_box(mesh,f)
+            if sel is None: nosel+=1; skiptilt+=1; continue
             if _planar_uv(mesh,sel,_face_uv_transform(f)): okc+=1
             else: noproj+=1
-        unreal.log("  retag UV: %d/%d cyl-side faces projected (selection-failed=%d, projection-failed=%d, flat-kept=%d)"
-                   %(okc,len(groups),nosel,noproj,skipflat))
+        unreal.log("  retag UV: %d/%d faces RE-projected post-boolean (selection-failed=%d, projection-failed=%d)"
+                   %(okc,len(groups),nosel,noproj))
+        if nosel: unreal.log("           (%d of those are tilted faces deliberately left on their "
+                             "pre-boolean UVs - the AABB would over-grab there)"%skiptilt)
 
 def assign_materials(sm):
     if not _TEX_OK[0]: return
@@ -1127,17 +1423,21 @@ def run():
     WATER=new_mesh()
     fails=[0]; first_err=[None]
     def BOP(tgt,tool,op): GB.apply_mesh_boolean(tgt,I,tool,I,op,O)
+    def WOP(tool,op):
+        # No-op while WATER is still empty: subtracting from / unioning into an empty mesh makes the
+        # engine log "Boolean operation failed due to an empty result" for every single brush.
+        if tri_count(WATER)>0 or op==UNION: BOP(WATER,tool,op)
     n=len(body)
     for i,b in enumerate(body,1):
         op=b["op"]
         try:
-            if   op==0:  BOP(result,mk(b),UNION);    BOP(WATER,mk(b),SUBTRACT)
-            elif op==1:  BOP(result,mk(b),SUBTRACT); BOP(WATER,mk(b),SUBTRACT)
-            elif op==2:  BOP(result,mk(b),SUBTRACT); BOP(WATER,mk(b),UNION)
+            if   op==0:  BOP(result,mk(b),UNION);    WOP(mk(b),SUBTRACT)
+            elif op==1:  BOP(result,mk(b),SUBTRACT); WOP(mk(b),SUBTRACT)
+            elif op==2:  BOP(result,mk(b),SUBTRACT); WOP(mk(b),UNION)
             elif op==3:  t=mk(b); BOP(t,result,SUBTRACT); BOP(WATER,t,UNION)
-            elif op==4:  BOP(WATER,mk(b),SUBTRACT)
+            elif op==4:  WOP(mk(b),SUBTRACT)
             elif op==5:  t=mk(b); BOP(t,result,INTERSECT); BOP(WATER,t,UNION); BOP(result,mk(b),SUBTRACT)
-            elif op==8:  t=mk(b); BOP(t,WATER,INTERSECT); BOP(result,t,UNION); BOP(WATER,mk(b),SUBTRACT)
+            elif op==8:  t=mk(b); BOP(t,WATER,INTERSECT); BOP(result,t,UNION); WOP(mk(b),SUBTRACT)
         except Exception as e:
             fails[0]+=1
             if first_err[0] is None: first_err[0]=str(e)
@@ -1146,15 +1446,44 @@ def run():
         tri_count(result),tri_count(WATER),fails[0]))
     if first_err[0]: unreal.log_error("First boolean error: %s"%first_err[0])
 
-    ensure_uv_normals(result)
-    if _TEX_OK[0] and FINAL_RETAG:
-        retag_final(result, body)     # Dark override: latest brush face wins per result triangle
-    elif _TEX_OK[0]:
+    # normals only: a whole-mesh UV projection here would overwrite every per-face projection we just
+    # did, collapsing vertical faces to barcode stripes (see ensure_uv_normals docstring).
+    # NORMALS ONLY. _UVFN is resolved by NAME so it can be a PLANAR projection; run over the whole
+    # level it projects every face down one axis, so only faces perpendicular to that axis survive and
+    # everything containing it collapses into stripes. That is precisely the reported MISS5 symptom:
+    # XZ faces (normal +/-Y) correct, YZ and XY faces barcoded along Y -> a whole-mesh planar
+    # projection along world Y. Never let a name-guessed projection touch the finished mesh.
+    ensure_uv_normals(result, uvs=False)
+    if _TEX_OK[0]:
+        if FINAL_RETAG:
+            retag_final(result, body) # Dark override: latest brush face wins per result triangle
+            if REBUILD_UNWELDED:
+                nm=rebuild_unwelded(result, getattr(retag_final,"tri2face",{}))
+                if nm is not None: result=nm
+                else: unreal.log_warning("  rebuild_unwelded unavailable - keeping welded mesh")
         if _PERFACE_UV[0]:
             unreal.log("UVs: per-face Dark scale  (tile ft = px * 2^(scale-20))")
         else:
+            # Fallback is the EXPLICITLY resolved BOX projection, which has no degenerate axis - every
+            # face is mapped from its own dominant axis, so nothing can collapse to a barcode.
+            unreal.log_warning("UVs: per-face projection was unavailable -> world-scale BOX projection "
+                               "(one repeat / %.0f cm). Textures will be uniformly tiled, not Dark-exact."%UV_TILE_CM)
             apply_world_uvs(result)
-            unreal.log("UVs: world-scale box projection (one repeat / %.0f cm)"%UV_TILE_CM)
+    uv_fail_report()
+    sel_selfcheck_report()
+    final_uv_check(result)
+    # One unmissable block at the end. The per-face vs fallback distinction is THE thing that decides
+    # whether textures are Dark-exact or barcoded, and it was previously buried in the log.
+    unreal.log("="*66)
+    if not _TEX_OK[0]:
+        unreal.log_error("  TEXTURES: DISABLED (no manifest / BUILD_TEXTURES off)")
+    elif _PERFACE_UV[0]:
+        unreal.log("  TEXTURES: per-face Dark projection ACTIVE  (%d face failures)"%_UVFAIL[0])
+    else:
+        unreal.log_error("  TEXTURES: per-face projection OFF -> whole-mesh BOX fallback.")
+        unreal.log_error("  This is the barcode/uniform-tiling case. Cause is logged above;")
+        unreal.log_error("  bisect with TEST_LIMIT to find the brush that turns it off.")
+    unreal.log("="*66)
     sm=bake(result, ASSET_PATH)
     if sm is None: unreal.log_error("bake failed"); return
     assign_materials(sm)

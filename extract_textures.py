@@ -188,7 +188,11 @@ def main():
             # fam.crf copy in these archives is stored at HALF the resolution DromEd actually scales by
             # (ground-truthed vs DromEd: bigbl fam.crf 64 -> real scale 128, and every overridden
             # texture shares this exact 2x error), so double the fam.crf size for overrides.
-            OVERRIDE_SCALE_FACTOR = 2
+            # The fam.crf copy IS the logical size Dark scales by - do NOT double it. Doubling made
+            # every HD-overridden texture tile 2x too large: MISS5 id47 (blustn), id58 (Cris05) and
+            # id3 (cobls1) all rendered zoomed out, while 64px-logical ones (bloxwall, wdplnk,
+            # Winwd64) looked right. Verified face-by-face against DromEd.
+            OVERRIDE_SCALE_FACTOR = 1
             scale_px = img.size[0]
             if kind != "crf":
                 crf_c = next((c for c in cands if c[0] == "crf"                       # same-family fam.crf copy

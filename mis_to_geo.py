@@ -408,8 +408,21 @@ def convert(inp, outp):
     brushes=[]; allv=[]
     for b,faces in zip(B,allfaces):
         V,T=bake(b)
+        # Emit the brush's ORIENTATION and half-extents explicitly. The builder used to recover a box's
+        # frame from its 8 vertices by eigen-decomposition, which is ambiguous the moment two extents
+        # are equal: the eigenvalues are degenerate so the eigenvectors are arbitrary within that
+        # subspace. Cubes and square-plan boxes therefore came out spuriously rotated (MISS5 id531
+        # 24x24x24 -> 69.7 deg, id2846 36x36x16 -> 45 deg) even though H=P=B=0 in the record. We know
+        # the exact rotation here, so hand it over instead of making UE guess.
+        R=Mdark(b["H"],b["P"],b["B"])
+        axes=[(F_REFLECT*(R@e)).tolist() for e in np.eye(3)]
+        # F_REFLECT has determinant -1, so the reflected triple is LEFT-handed; negate one axis to get
+        # a proper rotation. Harmless for these shapes - they are symmetric about every local axis.
+        if float(np.dot(np.cross(axes[0],axes[1]),axes[2]))<0: axes[1]=[-x for x in axes[1]]
         brushes.append(dict(id=b["id"],time=b["time"],op=b["op"],shape=b["shape"],
-                            verts=V,tris=T,faces=faces))
+                            verts=V,tris=T,faces=faces,
+                            axes=[[round(float(x),6) for x in a] for a in axes],
+                            ext=[round(float(h)*SCALE,4) for h in b["half"]]))
         allv+=V
     if not allv: raise ValueError("no terrain brushes found")
     # world solid box (encloses everything) as brush 0

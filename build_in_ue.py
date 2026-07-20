@@ -30,10 +30,10 @@ GEO_PATH    = r"C:\Nex\DarkSimProject\DarkSimToolkit\test_missions\MISS5_mod2_ge
 ASSET_PATH  = r"/Game/Mission/SM_Mission"
 BUILD_WATER = True        # also bake the water volume as a separate static mesh (SM_..._Water)
 BUILD_COLLISION = True    # give the mesh collision (complex-as-simple: the triangles ARE the collision)
-BUILD_WORLD_BOX = True     # True: start from the enclosing solid cuboid (brush 0) and carve into it (Dark
+BUILD_WORLD_BOX = False    # True: start from the enclosing solid cuboid (brush 0) and carve into it (Dark
                           #   default). False: start EMPTY - only additive/solid brushes appear, air carves
                           #   have nothing to cut (useful to preview individual brushes without the shell).
-TEST_LIMIT  = 0           # 0 = full mission; >0 = world solid + first N brushes (quick preview)
+TEST_LIMIT  = 100           # 0 = full mission; >0 = world solid + first N brushes (quick preview)
 UV_TILE_CM  = 64.0        # world-space texture tile size (one texture repeat per this many cm)
                           #   calibrated to Dark scale 16 (~2.1 ft/tile). Halve it -> texture bigger.
 
@@ -202,7 +202,17 @@ def _quat_from_axes(ax):
     return unreal.Quat(x,y,z,w)
 
 def mk_box(b):
-    C,ax,ext=recover_box(b["verts"])
+    # Prefer the orientation baked into the geo. recover_box() infers the frame from the 8 vertices by
+    # eigen-decomposition, which is AMBIGUOUS whenever two extents are equal - the eigenvalues are
+    # degenerate and the eigenvectors arbitrary within that subspace, so cubes and square-plan boxes
+    # came out spuriously rotated (MISS5 id531 24x24x24 -> 69.7 deg, id2846 36x36x16 -> 45 deg) despite
+    # H=P=B=0 in the record. Fall back to recovery only for geo written before `axes` existed.
+    if b.get("axes") and b.get("ext"):
+        V=b["verts"]; n=float(len(V)) or 1.0
+        C=[sum(v[i] for v in V)/n for i in range(3)]
+        ax=[list(a) for a in b["axes"]]; ext=list(b["ext"])
+    else:
+        C,ax,ext=recover_box(b["verts"])
     m=new_mesh()
     t=unreal.Transform()
     t.set_editor_property("translation", unreal.Vector(C[0],C[1],C[2]))
@@ -721,6 +731,16 @@ def _safe_cone(faces, default=15.0):
 SCALE_PX_OVERRIDE = {}         # texture name (lowercase) -> logical resolution; empty (extractor drives it
                                # via manifest scale_px). Manual escape hatch if any texture ever mismaps.
 
+def _face_res_wh(tex):
+    """(logical width, logical height) in texels. Height follows the display aspect ratio, which the
+    HD override preserves, so a 256x512 file with a 128px logical width is 128x256 logically."""
+    w=_face_res(tex)
+    e=_MANIFEST_LC.get((tex or "").lower()) or {}
+    sz=e.get("size")
+    if sz and len(sz)>=2 and sz[0]:
+        return w, w*float(sz[1])/float(sz[0])
+    return w, w
+
 def _face_res(tex):
     if not tex: return TEXEL_REF_PX
     key=tex.lower()
@@ -742,15 +762,14 @@ def apply_face_uvs(mesh, b):
     _okn=[0]
     for f in faces:
         n=f["n"]; nv=unreal.Vector(n[0],n[1],n[2])
-        sc=int(f.get("sc",16)); res=_face_res(f.get("tex"))
-        tile=res*(2.0**(sc-20))*FEET_CM                 # world tile in cm
+        sc=int(f.get("sc",16))
+        tile_u,tile_v,uoff,voff=_tile_uvoff(f)          # per-axis world tile in cm + offsets
+        tile=tile_u                                     # (logging only)
         rot=math.radians(float(f.get("rot",0.0) or 0.0))+math.pi   # base was 180 deg off (verified vs DromEd)
         if f.get("uaxis"): rot-=math.pi/2                   # baked cap frame is 90 deg off (mirror flips sense) -> correct it
         if f.get("capleg"): rot+=math.pi/2                  # cap from the -Y leg (not extrude axis) is a further 90 CCW
         if f.get("capleg_rot"): rot-=math.pi/2              # heading-rotated leg cap (id6): undo the heading-induced 90
         if f.get("solid") and abs(n[2])>0.99 and not f.get("uaxis"): rot+=math.pi   # solid horiz cap seen from opposite side -> 180
-        uoff=float(f.get("uoff",0.0) or 0.0)/res            # texels -> tile fraction
-        voff=-float(f.get("voff",0.0) or 0.0)/res           # V offset runs opposite to U (verified vs DromEd)
         sel=_select_by_normal(mesh,nv,cone)
         if sel is None:
             # Skip THIS face, keep going. This used to set _PERFACE_UV[0]=False and return, which on a
@@ -770,9 +789,9 @@ def apply_face_uvs(mesh, b):
         if f.get("solid"): su=-su                         # solid (union) faces flip opposite to air carves
         if f.get("cylside"): su=-su                        # curved side wraps the opposite way vs the caps
         uu=(uoff+TEX_SHIFT_U)*su; vv=voff+TEX_SHIFT_V
-        off=[(uu*tile)*U[i]+(vv*tile)*V[i] for i in range(3)]
+        off=[(uu*tile_u)*U[i]+(vv*tile_v)*V[i] for i in range(3)]
         t.set_editor_property("translation", unreal.Vector(off[0],off[1],off[2]))
-        t.set_editor_property("scale3d", unreal.Vector(su*tile,tile,1.0))
+        t.set_editor_property("scale3d", unreal.Vector(su*tile_u,tile_v,1.0))
         ok=False; err=None
         for call in ((mesh,0,t,sel),(mesh,0,t,sel,True),(mesh,sel,0,t)):
             try: getattr(GUV_PLN,_UVPLN)(*call); ok=True; break
@@ -1018,15 +1037,35 @@ def _uv_basis(n, f):
     u0=_norm(_cross([0.0,0.0,1.0], n)); v0=_norm(_cross(n,u0))       # box wall perpendicular
     return u0, v0, list(n)
 
+
+DARK_TILE_EXACT = False  # True = engine's resolution-independent 2^(sc-14). False = per-texture size.
+def _tile_uvoff(f):
+    """(tile_u, tile_v, u offset, v offset) in cm. ONE definition, used by every UV path.
+
+    U AND V ARE INDEPENDENT. Dark's tile is per 64 texels, so a NON-SQUARE texture spans a different
+    number of tiles on each axis: a 256x512 image is 1 tile wide but 2 tiles tall. Using one number
+    for both (we used the width) makes V wrong by exactly the aspect ratio - MISS5 id54's Door11 face
+    (256x512) rendered with V 2x too small, while square textures on the same brush looked fine.
+    91 of 333 textures are non-square; they cover 10.7% of MISS5's faces.
+
+    scale_px is the logical WIDTH (the fam.crf original). The logical height follows the display
+    aspect, which is preserved by the HD override: logical_h = scale_px * h/w."""
+    sc=int(f.get("sc",16))
+    if DARK_TILE_EXACT:
+        tu=tv=(2.0**(sc-14))*FEET_CM; du=dv=64.0
+    else:
+        du,dv=_face_res_wh(f.get("tex"))
+        tu=du*(2.0**(sc-20))*FEET_CM; tv=dv*(2.0**(sc-20))*FEET_CM
+    return tu, tv, float(f.get("uoff",0.0) or 0.0)/du, -float(f.get("voff",0.0) or 0.0)/dv
+
 def _face_uv_transform(f):
-    n=f["n"]; sc=int(f.get("sc",16)); res=_face_res(f.get("tex"))
-    tile=res*(2.0**(sc-20))*FEET_CM
+    n=f["n"]; sc=int(f.get("sc",16))
+    tile_u,tile_v,uoff,voff=_tile_uvoff(f); tile=tile_u
     rot=math.radians(float(f.get("rot",0.0) or 0.0))+math.pi
     if f.get("uaxis"): rot-=math.pi/2                 # baked cap frame is 90 deg off (mirror flips sense) -> correct it
     if f.get("capleg"): rot+=math.pi/2                # cap from the -Y leg (not extrude axis) is a further 90 CCW
     if f.get("capleg_rot"): rot-=math.pi/2           # heading-rotated leg cap (id6): undo the heading-induced 90
     if f.get("solid") and abs(n[2])>0.99 and not f.get("uaxis"): rot+=math.pi   # solid horiz cap seen from opposite side -> 180
-    uoff=float(f.get("uoff",0.0) or 0.0)/res; voff=-float(f.get("voff",0.0) or 0.0)/res
     u0,v0,projn=_uv_basis(n,f)
     c=math.cos(rot); s=math.sin(rot)
     U=[c*u0[i]+s*v0[i] for i in range(3)]; V=[-s*u0[i]+c*v0[i] for i in range(3)]
@@ -1035,9 +1074,9 @@ def _face_uv_transform(f):
     if f.get("solid"): su=-su                         # solid (union) faces face the opposite way -> flip back
     if f.get("cylside"): su=-su                        # curved side wraps the opposite way vs the caps
     uu=(uoff+TEX_SHIFT_U)*su; vv=voff+TEX_SHIFT_V     # flip the U offset phase to match the flipped axis
-    off=[(uu*tile)*U[i]+(vv*tile)*V[i] for i in range(3)]
+    off=[(uu*tile_u)*U[i]+(vv*tile_v)*V[i] for i in range(3)]
     t.set_editor_property("translation", unreal.Vector(off[0],off[1],off[2]))
-    t.set_editor_property("scale3d", unreal.Vector(su*tile,tile,1.0)); return t
+    t.set_editor_property("scale3d", unreal.Vector(su*tile_u,tile_v,1.0)); return t
 
 def _planar_uv(mesh, sel, t):
     for call in ((mesh,0,t,sel),(mesh,0,t,sel,True),(mesh,sel,0,t)):
@@ -1162,14 +1201,13 @@ def _face_uv_at(f, p):
     translation T=(uu*tile)U+(vv*tile)V, and a planar projection maps p -> S^-1 R^-1 (p-T), so
         u = U.p/(su*tile) - uu/su      v = V.p/tile - vv
     Computing it here means every vertex gets its own UV: nothing is shared, nothing can be clobbered."""
-    n=f["n"]; sc=int(f.get("sc",16)); res=_face_res(f.get("tex"))
-    tile=res*(2.0**(sc-20))*FEET_CM
+    n=f["n"]; sc=int(f.get("sc",16))
+    tile_u,tile_v,uoff,voff=_tile_uvoff(f); tile=tile_u
     rot=math.radians(float(f.get("rot",0.0) or 0.0))+math.pi
     if f.get("uaxis"): rot-=math.pi/2
     if f.get("capleg"): rot+=math.pi/2
     if f.get("capleg_rot"): rot-=math.pi/2
     if f.get("solid") and abs(n[2])>0.99 and not f.get("uaxis"): rot+=math.pi
-    uoff=float(f.get("uoff",0.0) or 0.0)/res; voff=-float(f.get("voff",0.0) or 0.0)/res
     u0,v0,projn=_uv_basis(n,f)
     c=math.cos(rot); sn=math.sin(rot)
     U=[c*u0[i]+sn*v0[i] for i in range(3)]; V=[-sn*u0[i]+c*v0[i] for i in range(3)]
@@ -1178,8 +1216,8 @@ def _face_uv_at(f, p):
         if f.get("solid"): su=-su
         if f.get("cylside"): su=-su
     uu=(uoff+TEX_SHIFT_U)*su; vv=voff+TEX_SHIFT_V
-    return ((U[0]*p[0]+U[1]*p[1]+U[2]*p[2])/(su*tile) - uu/su,
-            (V[0]*p[0]+V[1]*p[1]+V[2]*p[2])/tile      - vv)
+    return ((U[0]*p[0]+U[1]*p[1]+U[2]*p[2])/(su*tile_u) - uu/su,
+            (V[0]*p[0]+V[1]*p[1]+V[2]*p[2])/tile_v      - vv)
 
 def rebuild_unwelded(mesh, tri2face):
     """Rebuild the finished mesh with every triangle owning its own 3 vertices, UVs computed here.

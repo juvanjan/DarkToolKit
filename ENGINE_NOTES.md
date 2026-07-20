@@ -251,6 +251,44 @@ Y where Dark chooses +Z. Same U, same V slope, different constant → a pure tex
 Mapping into the build's conventions: `u0 = -su·F·U_dark`, `v0 = -F·V_dark`, `projn = u0 × v0`.
 Verified: reproduces Dark on 12/12 slant faces; changes 3 of 325 faces overall.
 
+### 🔴 retag_final: two matcher bugs that caused most "wrong texture" reports
+Both produced symptoms that looked like texture or UV problems and were neither.
+
+**1. Orientation tolerance was 60°.** `abs(dot(n_tri, n_face)) > 0.5` let a wedge's hypotenuse match
+its own bottom face — MISS5 id33's slant normal `[-0.45,0,0.89]` has `|dot| = 0.894` with its
+`[0,0,-1]` bottom, and the brush is only 61 cm tall, so slant triangles near the lower edge also fell
+inside the 15 cm plane tolerance and took the bottom face's texture. That is the triangle of wrong
+texture across the lower half of the slant. Now `RETAG_NORMAL_DOT = 0.99`; within-brush confusable
+face pairs went 4907 → 68. **Keep the `abs()`** — an air carve's visible surface normal is the
+negation of the stored brush-outward normal, so both signs are legitimate.
+
+**2. Cell-boundary off-by-one in the spatial index.** Faces are bucketed into 128 cm cells by their
+bbox. Boolean output lands on face planes to within floating point, so a triangle centroid sitting on
+a cell boundary floors into the *neighbouring* cell and never sees its own face:
+```
+BARE tri at (-0, 813, -284) normal (-1.00, 0, 0)  candidates=18 bestcos=1.000 bestplane=6949.4cm
+```
+id4's matching face is at exactly x=0 (`d=0`, centroid inside the polygon) — a perfect match at
+distance 0. But `floor(-1e-9/128) = -1` while the face is bucketed at `floor(0/128) = 0`, so only the
+far-away `big` faces remained as candidates. Faces are now padded by `CELL_EPS = 2.0` cm when
+bucketed.
+
+**The tell was `bestcos=1.000` with a 69 m plane distance.** Perfect orientation plus an absurd
+distance means the correct face is ABSENT from the candidate list, not out of tolerance. Widening the
+tolerance would have grabbed an unrelated face and produced a plausible-but-wrong texture — the exact
+failure mode of bug 1. When a match fails, log *why* before touching a constant.
+
+These unmatched triangles were behind a long chain of misleading symptoms: first flat grey (material
+0), then barcode stripes (the placeholder UV `(x/100, y/100)` is a fixed projection down world Z,
+which collapses on any vertical face), then a wrong texture (the fallback material). Each fix moved
+the symptom without touching the cause.
+
+### ⚠️ Air brushes DO carve when BUILD_WORLD_BOX=False
+They cannot carve an *empty* mesh, so an air brush before the first solid contributes nothing — but
+once any solid is unioned, later air brushes subtract from it. In MISS5's first five brushes only id2
+is solid, yet the result is 40 triangles rather than 12 because id3/4/5 carve it. Do not assume an
+air brush is absent from the mesh.
+
 ### 🔴 Texture scale comes from `terrain_scale` in the HD pack's `.mtl`
 **This supersedes everything in §4 about `scale_px` and `OVERRIDE_SCALE_FACTOR`.**
 

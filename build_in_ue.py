@@ -33,7 +33,7 @@ BUILD_COLLISION = True    # give the mesh collision (complex-as-simple: the tria
 BUILD_WORLD_BOX = False    # True: start from the enclosing solid cuboid (brush 0) and carve into it (Dark
                           #   default). False: start EMPTY - only additive/solid brushes appear, air carves
                           #   have nothing to cut (useful to preview individual brushes without the shell).
-TEST_LIMIT  = 100           # 0 = full mission; >0 = world solid + first N brushes (quick preview)
+TEST_LIMIT  = 0          # 0 = full mission; >0 = world solid + first N brushes (quick preview)
 UV_TILE_CM  = 64.0        # world-space texture tile size (one texture repeat per this many cm)
                           #   calibrated to Dark scale 16 (~2.1 ft/tile). Halve it -> texture bigger.
 
@@ -373,6 +373,12 @@ def mk_cylinder(b):
         unreal.log_warning("  cylinder primitive failed (%s); buffer fallback"%e)
         return mk_buffer(b)
 
+def _fallback_matid():
+    """Most-used material id, for triangles no face could be matched to. Anything is better than 0
+    (the default grey), which is what produced the untextured patches on MISS5 id4 / id49."""
+    if not _MATS: return 0
+    return max(_MATS.values(), key=lambda v: v[0])[0] if len(_MATS)==1 else            sorted(_MATS.values(), key=lambda v: v[0])[0][0]
+
 _BUFLOG=[False]
 def mk_buffer(b):
     """Build straight from the geo's verts/tris. NOTE this is the only path that does NOT go through a
@@ -513,6 +519,7 @@ def _existing(pkg, name):
     except Exception: pass
     return None
 
+_IMPFAIL=[]
 def _import_texture(name):
     entry=_MANIFEST.get(name) or _MANIFEST_LC.get(name.lower())   # texture names vary in case per mission
     if not entry: return None
@@ -527,7 +534,14 @@ def _import_texture(name):
     task.set_editor_property("save",False)
     unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([task])
     outs=task.get_editor_property("imported_object_paths")
-    return unreal.load_asset(outs[0]) if outs else None
+    if not outs:
+        # SILENT FAILURE was the trap: material_id() still hands out a valid non-zero id, but binds
+        # _default_material() (plain grey) to it, so the face renders untextured while every log line
+        # says the texture was assigned. Name the texture instead.
+        _IMPFAIL.append(name); unreal.log_warning("  texture import FAILED: %s (%s)"%(name,png)); return None
+    a=unreal.load_asset(outs[0])
+    if a is None: _IMPFAIL.append(name); unreal.log_warning("  texture import returned nothing: %s"%name)
+    return a
 
 def _tex_res(tex):
     f=getattr(tex,"blueprint_get_size_x",None)
@@ -859,7 +873,10 @@ def final_uv_check(mesh):
         bkt["n"]+=1
         # tiles per metre = sqrt(uv_area/world_area) * 100
         tpm=_m.sqrt(ua/wa)*100.0
-        if tpm<0.01: bkt["dead"]+=1
+        # A genuine collapse is EXACTLY zero UV area, not merely small. A legitimately huge tile
+        # (sc=24 gives a 312m tile -> 0.003 tiles/m) was being mis-reported as collapsed by a flat
+        # 0.01 cutoff. Test against zero instead; the tiles/m column already shows scale problems.
+        if tpm < 1e-6: bkt["dead"]+=1
         else: bkt["rep"].append(tpm)
     unreal.log("FINAL-MESH UV check (shape-independent: UV area vs world area):")
     tot=dead=0
@@ -1245,12 +1262,31 @@ def rebuild_unwelded(mesh, tri2face):
         except Exception: continue
         if len(ps)<3: continue
         base=len(verts)
+        if f is None:
+            # NO face matched. The old placeholder was (x/100, y/100) - a fixed projection down world
+            # Z - which collapses on any vertical surface and rendered as barcode stripes. It showed
+            # up as one triangle of a quad striped while its partner (which did match) was correct.
+            # Project along the triangle's OWN dominant axis instead, so no orientation can collapse.
+            e1=(ps[1].x-ps[0].x,ps[1].y-ps[0].y,ps[1].z-ps[0].z)
+            e2=(ps[2].x-ps[0].x,ps[2].y-ps[0].y,ps[2].z-ps[0].z)
+            cx=_cross(e1,e2); a=[abs(cx[0]),abs(cx[1]),abs(cx[2])]
+            ax=a.index(max(a))                       # dominant axis of the triangle normal
+            ij=(1,2) if ax==0 else ((0,2) if ax==1 else (0,1))
+            T_DEF=121.92                             # 4ft, Dark's default tile
         for q in ps[:3]:
             verts.append((q.x,q.y,q.z))
-            uvs.append(_face_uv_at(f,(q.x,q.y,q.z)) if f else (q.x/100.0,q.y/100.0))
+            if f:
+                uvs.append(_face_uv_at(f,(q.x,q.y,q.z)))
+            else:
+                c3=(q.x,q.y,q.z)
+                uvs.append((c3[ij[0]]/T_DEF, c3[ij[1]]/T_DEF))
         tris.append((base,base+1,base+2))
-        mats.append(material_id(f["tex"]) if f and f.get("tex") else 0)
-        if f is None: miss+=1
+        if f and f.get("tex"):
+            mats.append(material_id(f["tex"]))
+        else:
+            # Never emit material 0 here - that is the DEFAULT GREY material and renders as an
+            # untextured patch. Fall back to the mesh's most common texture instead of nothing.
+            mats.append(_fallback_matid()); miss+=1
     if not tris: return None
     m=new_mesh(); buf=MeshBuffers()
     buf.set_editor_property("vertices",  [unreal.Vector(*v) for v in verts])
@@ -1271,13 +1307,22 @@ def rebuild_unwelded(mesh, tri2face):
         except Exception as e: unreal.log_warning("  rebuild_unwelded: could not set %s (%s)"%(prop,e))
     GEDIT.append_buffers_to_mesh(m, buf)
     _enable_matids(m)
+    # Every triangle of a freshly-appended buffer starts at material 0, and slot 0 is the blank
+    # default material - i.e. FLAT GREY. _set_matid_tri swallows exceptions, so a failed assignment
+    # leaves that triangle grey with nothing in the log. Count them.
+    matfail=0
     for i,mid in enumerate(mats):
-        if mid: _set_matid_tri(m,i,mid)
+        if not _set_matid_tri(m,i,mid): matfail+=1
+    if matfail:
+        unreal.log_error("  rebuild_unwelded: %d/%d material assignments FAILED -> those triangles "
+                         "render as flat grey (material 0)"%(matfail,len(mats)))
     ensure_uv_normals(m, uvs=False)
     unreal.log("  rebuild_unwelded: %d tris -> %d verts (unwelded), uv set: %s, unmatched tris=%d"
                %(len(tris),len(verts),",".join(ok) or "NONE",miss))
     return m
 
+RETAG_RESCUE_CM  = 60.0   # plane tolerance for the relaxed second pass (strict pass uses 15)
+RETAG_NORMAL_DOT = 0.99   # min |cos| between a result triangle's normal and a face's normal
 def retag_final(mesh, body):
     """Assign each result triangle the LATEST brush face that lies on its plane and covers it
        (Dark's 'later brush wins' override; also makes texturing robust to the boolean).
@@ -1288,7 +1333,7 @@ def retag_final(mesh, body):
        phase than the geo cylinder (the old normal-bucketed match failed there, shifting the
        cylinder side textures by +6 facets)."""
     if not (GMAT_TRI and GQ_NORM and GTRIPOS): unreal.log_warning("  retag: missing tri funcs; skipped"); return
-    CELL=128.0
+    CELL=128.0; CELL_EPS=2.0   # cm of padding so boundary-hugging triangles find their face
     def _cell(p): return (int(math.floor(p[0]/CELL)),int(math.floor(p[1]/CELL)),int(math.floor(p[2]/CELL)))
     cells={}; big=[]
     for b in body:
@@ -1297,7 +1342,14 @@ def retag_final(mesh, body):
             if not f.get("tex") or not f.get("poly"): continue
             poly=f["poly"]
             xs=[p[0] for p in poly]; ys=[p[1] for p in poly]; zs=[p[2] for p in poly]
-            lo=_cell([min(xs),min(ys),min(zs)]); hi=_cell([max(xs),max(ys),max(zs)])
+            # Pad the face's bbox by CELL_EPS before bucketing. Boolean output lands on face planes
+            # to within floating point, so a triangle centroid on a CELL BOUNDARY floors into the
+            # neighbouring cell and never sees the face: MISS5 id4's x=0 face is bucketed at
+            # floor(0/128)=0, while a triangle at x=-1e-9 looks up floor(-1e-9/128)=-1. It reported
+            # bestcos=1.000 (perfect orientation) with bestplane=6949cm, because the only candidates
+            # left were the far-away `big` faces. No tolerance would ever have fixed that.
+            lo=_cell([min(xs)-CELL_EPS,min(ys)-CELL_EPS,min(zs)-CELL_EPS])
+            hi=_cell([max(xs)+CELL_EPS,max(ys)+CELL_EPS,max(zs)+CELL_EPS])
             span=(hi[0]-lo[0]+1)*(hi[1]-lo[1]+1)*(hi[2]-lo[2]+1)
             entry=(t,f)
             if span>512:
@@ -1310,7 +1362,7 @@ def retag_final(mesh, body):
     tc=tri_count(mesh)
     if not tc or tc<0: unreal.log_warning("  retag: no triangle count"); return
     _enable_matids(mesh)
-    groups={}; matched=0
+    groups={}; matched=0; unmatched=[]
     for tid in range(tc):
         nr=_tri_normal(mesh,tid); c=_tri_centroid(mesh,tid)
         if nr is None or c is None: continue
@@ -1318,7 +1370,14 @@ def retag_final(mesh, body):
         best=None; bestt=-1; bestpd=1e9
         for (t,f) in cells.get(_cell(cl),[])+big:
             fn=f["n"]
-            if abs(_dot(nrl,fn))<0.5: continue                 # not roughly coplanar orientation
+            # Orientation must be NEARLY PARALLEL, not merely "roughly coplanar". At the old 0.5
+            # (60 deg!) a wedge's hypotenuse matched its own bottom face: MISS5 id33's slant normal
+            # [-0.45,0,0.89] has |dot| 0.894 with its [0,0,-1] bottom, and the brush is only 61cm
+            # tall, so slant triangles near the lower edge also fell inside the 15cm plane tolerance
+            # and took the bottom face's texture - a triangle of the wrong texture across the lower
+            # half of the slant. abs() is kept: an AIR carve's visible surface normal is the negation
+            # of the stored brush-outward normal, so both signs are legitimate.
+            if abs(_dot(nrl,fn))<RETAG_NORMAL_DOT: continue
             pd=abs(_dot(cl,fn)-f["d"])
             if pd>15.0: continue                               # not on the face's plane
             if not _pt_in_poly(cl,f["poly"],fn): continue      # centroid not covered by the polygon
@@ -1326,7 +1385,65 @@ def retag_final(mesh, body):
         if best is not None:
             _set_matid_tri(mesh,tid,material_id(best["tex"]))
             groups.setdefault(id(best),(best,[]))[1].append(tid); matched+=1
+        else:
+            unmatched.append((tid,nrl,cl))
     unreal.log("  retag: %d/%d tris matched to %d faces"%(matched,tc,len(groups)))
+
+    # RELAXED SECOND PASS for triangles the strict test missed.
+    #
+    # The boolean creates new triangles along every intersection, and a fair number have centroids
+    # that fall outside EVERY face polygon (1175 of 72004 on MISS5). Those used to keep material id 0,
+    # which is the DEFAULT GREY material - the untextured patches on id4 and id49. They also got
+    # placeholder UVs in rebuild_unwelded.
+    #
+    # So: drop the polygon-coverage requirement, keep the orientation requirement, and take the
+    # nearest coplanar face by plane distance (latest brush wins ties, as before). A triangle that
+    # lies ON a face's plane and faces the same way belongs to that surface even if its centroid
+    # drifts past the polygon edge.
+    rescued=0; diag=[]; diagpos=[]
+    if unmatched:
+        for (tid,nrl,cl) in unmatched:
+            best=None; bestt=-1; bestpd=1e9
+            for (t,f) in cells.get(_cell(cl),[])+big:
+                fn=f["n"]
+                if abs(_dot(nrl,fn))<RETAG_NORMAL_DOT: continue
+                pd=abs(_dot(cl,fn)-f["d"])
+                if pd>RETAG_RESCUE_CM: continue
+                if pd<bestpd-1e-6 or (abs(pd-bestpd)<=1e-6 and t>bestt):
+                    bestt=t; bestpd=pd; best=f
+            if best is not None:
+                _set_matid_tri(mesh,tid,material_id(best["tex"]))
+                groups.setdefault(id(best),(best,[]))[1].append(tid); rescued+=1
+            else:
+                # WHY did it fail? Record the closest candidate on each axis so the blocker is
+                # visible instead of guessed at. bd = best |cos| seen, bpd = best plane distance
+                # among candidates that passed the orientation test.
+                bd=0.0; bpd=1e9; ncand=0
+                for (t,f) in cells.get(_cell(cl),[])+big:
+                    ncand+=1
+                    d=abs(_dot(nrl,f["n"]))
+                    if d>bd: bd=d
+                    if d>=RETAG_NORMAL_DOT:
+                        pd=abs(_dot(cl,f["n"])-f["d"])
+                        if pd<bpd: bpd=pd
+                diag.append((ncand,bd,bpd))
+                if len(diagpos)<8: diagpos.append((cl,nrl,ncand,bd,bpd))
+        unreal.log("  retag rescue: %d/%d unmatched tris resolved by nearest coplanar face (%d still bare)"
+                   %(rescued,len(unmatched),len(unmatched)-rescued))
+        if diag:
+            nocand=sum(1 for c,_,_ in diag if c==0)
+            orient=sum(1 for c,d,_ in diag if c>0 and d<RETAG_NORMAL_DOT)
+            plane =sum(1 for c,d,pd in diag if c>0 and d>=RETAG_NORMAL_DOT and pd>RETAG_RESCUE_CM)
+            unreal.log("  rescue blockers: no candidate in cell=%d, orientation<%.2f=%d, plane>%.0fcm=%d"
+                       %(nocand,RETAG_NORMAL_DOT,orient,RETAG_RESCUE_CM,plane))
+            bds=sorted(d for c,d,_ in diag if c>0)
+            pds=sorted(pd for c,d,pd in diag if pd<1e8)
+            if bds: unreal.log("     best |cos| seen: min %.3f  median %.3f  max %.3f"%(bds[0],bds[len(bds)//2],bds[-1]))
+            if pds: unreal.log("     best plane dist: min %.1f  median %.1f  max %.1fcm"%(pds[0],pds[len(pds)//2],pds[-1]))
+            for (cl,nrl,ncand,bd,bpd) in diagpos:
+                unreal.log("     BARE tri at (%.0f, %.0f, %.0f) normal (%.2f, %.2f, %.2f)  "
+                           "candidates=%d bestcos=%.3f bestplane=%.1fcm"
+                           %(cl[0],cl[1],cl[2],nrl[0],nrl[1],nrl[2],ncand,bd,bpd))
     tri2face={}
     for fid,(f,tids) in groups.items():
         for t in tids: tri2face[t]=f
@@ -1513,6 +1630,11 @@ def run():
             unreal.log_warning("UVs: per-face projection was unavailable -> world-scale BOX projection "
                                "(one repeat / %.0f cm). Textures will be uniformly tiled, not Dark-exact."%UV_TILE_CM)
             apply_world_uvs(result)
+    if _IMPFAIL:
+        unreal.log_error("  %d TEXTURE(S) FAILED TO IMPORT - these render as flat grey:"%len(_IMPFAIL))
+        for t in sorted(set(_IMPFAIL)): unreal.log_error("      %s"%t)
+    else:
+        unreal.log("  all textures imported OK")
     uv_fail_report()
     sel_selfcheck_report()
     final_uv_check(result)

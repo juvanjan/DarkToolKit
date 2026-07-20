@@ -25,6 +25,28 @@ import os, sys, zipfile, struct, json, argparse
 
 TEX_EXTS = (".pcx", ".dds", ".png", ".gif", ".tga", ".bmp")
 
+
+_MTL_CACHE = {}
+def _terrain_scale(container, member, game_root):
+    """Logical texture size from the HD pack's sibling .mtl ("terrain_scale N"), or None.
+
+    NewDark texture packs declare the size Dark scales by; it cannot be inferred from the image
+    dimensions (bloxwall and BIGBL2 are both 64x64 in fam.crf yet declare 64 and 128)."""
+    if not _MTL_CACHE:
+        for root, _, files in os.walk(game_root):
+            for f in files:
+                if not f.lower().endswith(".mtl"): continue
+                try:
+                    for line in open(os.path.join(root, f), "r", errors="ignore"):
+                        parts = line.strip().split()
+                        if len(parts) >= 2 and parts[0].lower() == "terrain_scale":
+                            _MTL_CACHE[os.path.splitext(f)[0].lower()] = int(parts[1]); break
+                except Exception: pass
+        if _MTL_CACHE: print("  read terrain_scale from %d .mtl files" % len(_MTL_CACHE))
+        else: _MTL_CACHE["__none__"] = 0
+    key = os.path.splitext(os.path.basename(member or container))[0].lower()
+    return _MTL_CACHE.get(key)
+
 # ---------------------------------------------------------------- read texture names from a .MIS (TXLIST)
 def read_txlist(path):
     """Return [(name, family)] referenced by a mission. family = the folder DromEd resolves it from.
@@ -184,26 +206,31 @@ def main():
             img.save(os.path.join(a.out, outname))
             # Dark scales a texture by its ORIGINAL size, even when a loose/HD file overrides it for
             # display. Record that as scale_px so the tile formula (px*2^(scale-20)) matches DromEd.
-            # If the picked file IS the fam.crf copy, scale_px == size. For OVERRIDDEN textures the
-            # fam.crf copy in these archives is stored at HALF the resolution DromEd actually scales by
-            # (ground-truthed vs DromEd: bigbl fam.crf 64 -> real scale 128, and every overridden
-            # texture shares this exact 2x error), so double the fam.crf size for overrides.
-            # The fam.crf copy IS the logical size Dark scales by - do NOT double it. Doubling made
-            # every HD-overridden texture tile 2x too large: MISS5 id47 (blustn), id58 (Cris05) and
-            # id3 (cobls1) all rendered zoomed out, while 64px-logical ones (bloxwall, wdplnk,
-            # Winwd64) looked right. Verified face-by-face against DromEd.
-            OVERRIDE_SCALE_FACTOR = 1
+            #
+            # THE AUTHORITY IS terrain_scale. NewDark HD texture packs ship a sibling .mtl next to each
+            # replacement image declaring the logical size Dark should scale by:
+            #     MODS/NTEX/FAM/Core_1/BIGBL2.mtl  ->  "terrain_scale 128"
+            # This is NOT derivable from the file sizes. bloxwall and BIGBL2 are both 64x64 in fam.crf,
+            # both in Core_1, both 512/256px as DDS - yet terrain_scale says 64 and 128 respectively,
+            # and DromEd tiles them 4ft and 8ft accordingly. Measured against DromEd on MISS5_mod2:
+            # id4618 Rustgir3 12 repeats / 48ft = 4ft (terrain_scale 64), id42 bigbl2 4 / 32ft = 8ft
+            # (128), id98 wdplnk 1.25 / 10ft = 8ft (128). All six tested textures match their .mtl.
+            #
+            # Fall back to the fam.crf original only when no .mtl exists (unmodded installs).
             scale_px = img.size[0]
-            if kind != "crf":
+            ts = _terrain_scale(container, member, a.game)
+            if ts:
+                scale_px = ts
+            elif kind != "crf":
                 crf_c = next((c for c in cands if c[0] == "crf"                       # same-family fam.crf copy
                               and (not fam or (c[3] and c[3].lower() == fam.lower()))), None)
                 crf_c = crf_c or next((c for c in cands if c[0] == "crf"), None)       # any fam.crf copy
                 if crf_c:
-                    try: scale_px = load_image(crf_c[0], crf_c[1], crf_c[2]).size[0] * OVERRIDE_SCALE_FACTOR
+                    try: scale_px = load_image(crf_c[0], crf_c[1], crf_c[2]).size[0]
                     except Exception: pass
             if scale_px != img.size[0]:
-                overrides.append("%s: display %dpx, scale %dpx (fam.crf original x%d)"
-                                 % (disp, img.size[0], scale_px, OVERRIDE_SCALE_FACTOR))
+                overrides.append("%s: display %dpx, scale %dpx (%s)"
+                                 % (disp, img.size[0], scale_px, "terrain_scale" if ts else "fam.crf original"))
             manifest[disp] = {"png": outname, "family": fam, "folder": folder,
                               "source": os.path.basename(container) + (("::"+member) if member else ""),
                               "family_matched": bool(fam and exact),

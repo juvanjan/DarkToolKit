@@ -219,7 +219,7 @@
     512,
     512
    ],
-   "scale_px": 64,
+   "scale_px": 128,
    "used_by": [
     "00.mis",
     "01.mis",
@@ -250,7 +250,7 @@
     256,
     256
    ],
-   "scale_px": 64,
+   "scale_px": 128,
    "used_by": [
     "00.mis",
     "01.mis",
@@ -379,7 +379,7 @@
     512,
     512
    ],
-   "scale_px": 64,
+   "scale_px": 128,
    "used_by": [
     "00.mis",
     "01.mis",
@@ -666,7 +666,7 @@
     512,
     512
    ],
-   "scale_px": 64,
+   "scale_px": 256,
    "used_by": [
     "MISS1_mod.mis",
     "MISS9_mod.mis"
@@ -682,7 +682,7 @@
     512,
     512
    ],
-   "scale_px": 64,
+   "scale_px": 256,
    "used_by": [
     "MISS9_mod.mis"
    ]
@@ -731,7 +731,7 @@
     512,
     512
    ],
-   "scale_px": 64,
+   "scale_px": 128,
    "used_by": [
     "MISS1_mod.mis",
     "MISS9_mod.mis"
@@ -813,7 +813,7 @@
     512,
     512
    ],
-   "scale_px": 64,
+   "scale_px": 128,
    "used_by": [
     "MISS9_mod.mis"
    ]
@@ -828,7 +828,7 @@
     512,
     512
    ],
-   "scale_px": 64,
+   "scale_px": 128,
    "used_by": [
     "MISS1_mod.mis",
     "MISS9_mod.mis"
@@ -844,7 +844,7 @@
     1024,
     1024
    ],
-   "scale_px": 128,
+   "scale_px": 256,
    "used_by": [
     "00.mis",
     "01.mis",
@@ -1332,7 +1332,7 @@
     512,
     512
    ],
-   "scale_px": 64,
+   "scale_px": 128,
    "used_by": [
     "00.mis",
     "01.mis",
@@ -2138,7 +2138,7 @@
     512,
     512
    ],
-   "scale_px": 64,
+   "scale_px": 128,
    "used_by": [
     "00.mis",
     "01.mis",
@@ -2425,7 +2425,7 @@
     512,
     512
    ],
-   "scale_px": 64,
+   "scale_px": 128,
    "used_by": [
     "MISS5_mod.mis",
     "MISS5_mod2.mis",
@@ -3266,7 +3266,7 @@
     512,
     512
    ],
-   "scale_px": 64,
+   "scale_px": 128,
    "used_by": [
     "MISS1_mod.mis",
     "MISS9_mod.mis"
@@ -3395,7 +3395,7 @@
     512,
     512
    ],
-   "scale_px": 64,
+   "scale_px": 128,
    "used_by": [
     "00.mis",
     "01.mis",
@@ -3439,7 +3439,7 @@
     512,
     512
    ],
-   "scale_px": 64,
+   "scale_px": 128,
    "used_by": [
     "MISS5_mod.mis",
     "MISS5_mod2.mis",
@@ -3457,7 +3457,7 @@
     512,
     512
    ],
-   "scale_px": 64,
+   "scale_px": 128,
    "used_by": [
     "MISS5_mod.mis",
     "MISS5_mod2.mis",
@@ -3474,7 +3474,7 @@
     512,
     512
    ],
-   "scale_px": 64,
+   "scale_px": 128,
    "used_by": [
     "00.mis",
     "01.mis",
@@ -3719,7 +3719,7 @@
     512,
     512
    ],
-   "scale_px": 64,
+   "scale_px": 128,
    "used_by": [
     "MISS1_mod.mis"
    ]
@@ -3766,7 +3766,7 @@
     512,
     512
    ],
-   "scale_px": 128,
+   "scale_px": 256,
    "used_by": [
     "00.mis",
     "01.mis",
@@ -4560,7 +4560,7 @@
     256,
     512
    ],
-   "scale_px": 32,
+   "scale_px": 64,
    "used_by": [
     "MISS1_mod.mis",
     "MISS9_mod.mis"
@@ -4973,7 +4973,7 @@
     512,
     512
    ],
-   "scale_px": 256,
+   "scale_px": 128,
    "used_by": [
     "00.mis",
     "01.mis",
@@ -5049,7 +5049,7 @@
     512,
     512
    ],
-   "scale_px": 64,
+   "scale_px": 128,
    "used_by": [
     "MISS1_mod.mis",
     "MISS9_mod.mis"
@@ -5081,7 +5081,7 @@
     1024,
     1024
    ],
-   "scale_px": 64,
+   "scale_px": 256,
    "used_by": [
     "MISS9_mod.mis"
    ]
@@ -5096,7 +5096,7 @@
     512,
     512
    ],
-   "scale_px": 64,
+   "scale_px": 128,
    "used_by": [
     "MISS5_mod.mis",
     "MISS5_mod2.mis",
@@ -5114,7 +5114,7 @@
     512,
     512
    ],
-   "scale_px": 64,
+   "scale_px": 128,
    "used_by": [
     "MISS1_mod.mis",
     "MISS5_mod.mis",
@@ -5133,7 +5133,7 @@
     512,
     512
    ],
-   "scale_px": 64,
+   "scale_px": 128,
    "used_by": [
     "00.mis",
     "01.mis",
@@ -5162,7 +5162,7 @@
     512,
     512
    ],
-   "scale_px": 64,
+   "scale_px": 128,
    "used_by": [
     "MISS9_mod.mis"
    ]

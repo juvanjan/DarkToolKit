@@ -251,6 +251,43 @@ Y where Dark chooses +Z. Same U, same V slope, different constant → a pure tex
 Mapping into the build's conventions: `u0 = -su·F·U_dark`, `v0 = -F·V_dark`, `projn = u0 × v0`.
 Verified: reproduces Dark on 12/12 slant faces; changes 3 of 325 faces overall.
 
+### 🔴 Texture scale comes from `terrain_scale` in the HD pack's `.mtl`
+**This supersedes everything in §4 about `scale_px` and `OVERRIDE_SCALE_FACTOR`.**
+
+NewDark HD texture packs ship a `.mtl` beside each replacement image declaring the logical size Dark
+scales by:
+```
+MODS/NTEX/FAM/Core_1/BIGBL2.mtl    ->  terrain_scale 128
+MODS/NTEX/FAM/Core_1/bloxwall.mtl  ->  terrain_scale 64
+```
+**It is not derivable from any file dimension.** `bloxwall` and `BIGBL2` are both 64×64 in `fam.crf`,
+both in Core_1, both shipped as DDS — yet they declare 64 and 128, and DromEd tiles them at 4 ft and
+8 ft. That is why no computed property ever separated the correct faces from the wrong ones, and why
+`OVERRIDE_SCALE_FACTOR` could never be right: there was no uniform rule to find. It was 2 (wrong for
+64-logical textures), then 1 (wrong for 128-logical ones).
+
+`extract_textures.py` now reads `terrain_scale` (140 `.mtl` files in this install), falling back to
+the `fam.crf` size only for unmodded installs. Verified against DromEd repeat counts on MISS5_mod2:
+id4618 Rustgir3 12 repeats / 48 ft = 4 ft (declares 64); id42 bigbl2 4 / 32 ft = 8 ft (128);
+id98 wdplnk 1.25 / 10 ft = 8 ft (128). 8/8 tested textures match their `.mtl`.
+
+**How to settle a scale dispute:** ask for a repeat count across a known edge in DromEd. `tile_ft =
+edge_ft / repeats`. That is objective; "looks zoomed" is not, and thin faces (a 0.5 ft sliver) give
+unreliable readings — two wrong diagnoses came from judging scale on slivers.
+
+### 🔴 Face rotation must be NEGATED
+`F_REFLECT = [1,-1,1]` has determinant −1, so mirroring the level reverses the handedness of
+rotation: a +90° face rotation in Dark renders as −90° (270°). MISS5 id98 carries raw 16384 (=90°)
+and appeared as 270°. `_face_rot()` now negates the record angle.
+
+Affects 2104 of 26000 faces (8.1%) — mostly 90° and 270°. **0° and 180° are invariant under the
+flip**, and the wedge/pyramid test missions contain only those two values, so every validation done
+on 11.mis and 13.mis was blind to this. Both are provably unaffected (0 faces change).
+
+`_face_rot()` is now the single definition of the rotation stack; there were three separate copies
+(`apply_face_uvs`, `_face_uv_transform`, `_face_uv_at`) which is exactly the drift hazard this file
+keeps warning about. Same for `_tile_uvoff()`, which owns the tile/offset maths.
+
 ### 🔴 The boolean returns a WELDED UV overlay — faces overwrite each other
 The worst bug found in this project. It affected **every mission ever built**, including ones we
 signed off as correct.

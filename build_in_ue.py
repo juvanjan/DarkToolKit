@@ -765,11 +765,7 @@ def apply_face_uvs(mesh, b):
         sc=int(f.get("sc",16))
         tile_u,tile_v,uoff,voff=_tile_uvoff(f)          # per-axis world tile in cm + offsets
         tile=tile_u                                     # (logging only)
-        rot=math.radians(float(f.get("rot",0.0) or 0.0))+math.pi   # base was 180 deg off (verified vs DromEd)
-        if f.get("uaxis"): rot-=math.pi/2                   # baked cap frame is 90 deg off (mirror flips sense) -> correct it
-        if f.get("capleg"): rot+=math.pi/2                  # cap from the -Y leg (not extrude axis) is a further 90 CCW
-        if f.get("capleg_rot"): rot-=math.pi/2              # heading-rotated leg cap (id6): undo the heading-induced 90
-        if f.get("solid") and abs(n[2])>0.99 and not f.get("uaxis"): rot+=math.pi   # solid horiz cap seen from opposite side -> 180
+        rot=_face_rot(f,n)
         sel=_select_by_normal(mesh,nv,cone)
         if sel is None:
             # Skip THIS face, keep going. This used to set _PERFACE_UV[0]=False and return, which on a
@@ -1038,6 +1034,24 @@ def _uv_basis(n, f):
     return u0, v0, list(n)
 
 
+def _face_rot(f, n):
+    """Final texture rotation in radians. ONE definition for every UV path.
+
+    The record's angle is NEGATED. F_REFLECT = [1,-1,1] has determinant -1, so mirroring the level
+    reverses the handedness of rotation: a +90 deg face rotation in Dark renders as -90 (270) unless
+    we flip it back. Confirmed on MISS5 id98, whose faces carry raw 16384 (=90 deg) and appeared as
+    270 in UE. Affects 2104 of 26000 faces (8.1%); 0 and 180 are unchanged by the flip, which is why
+    the wedge/pyramid test missions (rotations of only 0 and 180) never exposed it.
+
+    The +pi base and the cap corrections below are UE-side and were calibrated at rot=0, so they are
+    independent of the sign flip and stay as they are."""
+    rot=-math.radians(float(f.get("rot",0.0) or 0.0))+math.pi
+    if f.get("uaxis"): rot-=math.pi/2       # baked cap frame is 90 deg off (mirror flips sense)
+    if f.get("capleg"): rot+=math.pi/2      # cap from the -Y leg, not the extrude axis
+    if f.get("capleg_rot"): rot-=math.pi/2  # heading-rotated leg cap (wedge id6)
+    if f.get("solid") and abs(n[2])>0.99 and not f.get("uaxis"): rot+=math.pi
+    return rot
+
 DARK_TILE_EXACT = False  # True = engine's resolution-independent 2^(sc-14). False = per-texture size.
 def _tile_uvoff(f):
     """(tile_u, tile_v, u offset, v offset) in cm. ONE definition, used by every UV path.
@@ -1061,11 +1075,7 @@ def _tile_uvoff(f):
 def _face_uv_transform(f):
     n=f["n"]; sc=int(f.get("sc",16))
     tile_u,tile_v,uoff,voff=_tile_uvoff(f); tile=tile_u
-    rot=math.radians(float(f.get("rot",0.0) or 0.0))+math.pi
-    if f.get("uaxis"): rot-=math.pi/2                 # baked cap frame is 90 deg off (mirror flips sense) -> correct it
-    if f.get("capleg"): rot+=math.pi/2                # cap from the -Y leg (not extrude axis) is a further 90 CCW
-    if f.get("capleg_rot"): rot-=math.pi/2           # heading-rotated leg cap (id6): undo the heading-induced 90
-    if f.get("solid") and abs(n[2])>0.99 and not f.get("uaxis"): rot+=math.pi   # solid horiz cap seen from opposite side -> 180
+    rot=_face_rot(f,n)
     u0,v0,projn=_uv_basis(n,f)
     c=math.cos(rot); s=math.sin(rot)
     U=[c*u0[i]+s*v0[i] for i in range(3)]; V=[-s*u0[i]+c*v0[i] for i in range(3)]
@@ -1203,11 +1213,7 @@ def _face_uv_at(f, p):
     Computing it here means every vertex gets its own UV: nothing is shared, nothing can be clobbered."""
     n=f["n"]; sc=int(f.get("sc",16))
     tile_u,tile_v,uoff,voff=_tile_uvoff(f); tile=tile_u
-    rot=math.radians(float(f.get("rot",0.0) or 0.0))+math.pi
-    if f.get("uaxis"): rot-=math.pi/2
-    if f.get("capleg"): rot+=math.pi/2
-    if f.get("capleg_rot"): rot-=math.pi/2
-    if f.get("solid") and abs(n[2])>0.99 and not f.get("uaxis"): rot+=math.pi
+    rot=_face_rot(f,n)
     u0,v0,projn=_uv_basis(n,f)
     c=math.cos(rot); sn=math.sin(rot)
     U=[c*u0[i]+sn*v0[i] for i in range(3)]; V=[-sn*u0[i]+c*v0[i] for i in range(3)]

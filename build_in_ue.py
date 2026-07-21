@@ -355,6 +355,14 @@ def recover_cylinder(verts,tris):
     return C, ax, a, bmin, height, sides
 
 def mk_cylinder(b):
+    # FACE-ALIGNED cylinders: build straight from the geo verts. recover_cylinder fits an ELLIPSE and
+    # takes the rotation from its major axis; a circular cross-section has no major axis, so it can't
+    # recover the half-facet face-alignment phase (id7 came out 22.5 deg off), and rotating the fitted
+    # frame afterwards left the rebuilt facets' planes 74-132cm off the geo face polys -> retag missed
+    # 6 of 8 sides. mk_buffer builds the exact geo mesh (cyl_local already emits the face-aligned ring),
+    # so mesh == geo face polys and texturing stays in phase. Vertex-aligned cylinders keep the
+    # recover_cylinder path, which works and gives clean UE primitive UVs.
+    if b.get("falign"): return mk_buffer(b)
     if not GCYL: return mk_buffer(b)
     try:
         C,ax,a,bmin,height,sides=recover_cylinder(b["verts"], b["tris"])

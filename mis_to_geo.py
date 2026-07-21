@@ -35,11 +35,16 @@ def wedge_local(h):                       # triangle in Y-Z (y/hy+z/hz<=0), extr
     V=[(-hx,-hy,-hz),(-hx,hy,-hz),(-hx,-hy,hz),(hx,-hy,-hz),(hx,hy,-hz),(hx,-hy,hz)]
     T=[(2,1,0),(3,4,5),(0,1,4),(0,4,3),(1,2,5),(1,5,4),(2,0,3),(2,3,5)]
     return V,T
-def cyl_local(h,sides):                    # n-gon prism, +90 deg phase
+def cyl_local(h,sides,face_align=False):    # n-gon prism
+    # ngon_base builds Dark's own ring. Vertex-aligned reproduces the old hardcoded phase exactly;
+    # face-aligned rotates half a facet (pi/n) and scales 1/cos(pi/n) so the FACE, not the vertex,
+    # touches the box (PRIMAL_ALIGN_FACE bit, primshap.c:182). The face-aligned mesh is built directly
+    # from these verts (build-side mk_buffer), NOT re-fit by recover_cylinder, so mesh == geo exactly
+    # and texturing stays in phase.
     hx,hy,hz=h; n=max(3,int(sides))
-    ang=[2*math.pi*k/n+math.pi/2 for k in range(n)]
-    top=[(hx*math.cos(a),hy*math.sin(a), hz) for a in ang]
-    bot=[(hx*math.cos(a),hy*math.sin(a),-hz) for a in ang]
+    ring=ngon_base(n, face_align)
+    top=[(x*hx,y*hy, hz) for (x,y) in ring]
+    bot=[(x*hx,y*hy,-hz) for (x,y) in ring]
     V=top+bot; T=[]
     for k in range(1,n-1): T.append((0,k,k+1)); T.append((n,n+k+1,n+k))
     for k in range(n):
@@ -166,7 +171,7 @@ def classify_primal(pid, nf):
 
 def bake(b):
     h=b["half"]
-    if   b["shape"]=="cylinder": V,T=cyl_local(h,b["sides"])
+    if   b["shape"]=="cylinder": V,T=cyl_local(h,b["sides"],b.get("falign",False))
     elif b["shape"]=="wedge":    V,T=wedge_local(h)
     elif b["shape"] in ("pyramid","cornerpyr"):
         V,T,_=pyr_local(h,b["sides"],b["shape"]=="cornerpyr",b.get("falign",False))
@@ -239,7 +244,7 @@ def faces_for(b, names):
     """Return [{n:[ux,uy,uz], tex:name|None}] - one per distinct face, in UE space."""
     h=b["half"]
     tslot=None
-    if   b["shape"]=="cylinder": V,T=cyl_local(h,b["sides"])
+    if   b["shape"]=="cylinder": V,T=cyl_local(h,b["sides"],b.get("falign",False))
     elif b["shape"]=="wedge":    V,T=wedge_local(h)
     elif b["shape"] in ("pyramid","cornerpyr"):
         V,T,tslot=pyr_local(h,b["sides"],b["shape"]=="cornerpyr",b.get("falign",False))
@@ -420,6 +425,7 @@ def convert(inp, outp):
         # a proper rotation. Harmless for these shapes - they are symmetric about every local axis.
         if float(np.dot(np.cross(axes[0],axes[1]),axes[2]))<0: axes[1]=[-x for x in axes[1]]
         brushes.append(dict(id=b["id"],time=b["time"],op=b["op"],shape=b["shape"],
+                            falign=bool(b.get("falign",False)),   # PRIMAL_ALIGN_FACE bit (build-side rot)
                             verts=V,tris=T,faces=faces,
                             axes=[[round(float(x),6) for x in a] for a in axes],
                             ext=[round(float(h)*SCALE,4) for h in b["half"]]))

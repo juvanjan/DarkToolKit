@@ -1375,6 +1375,13 @@ def retag_final(mesh, body):
         nr=_tri_normal(mesh,tid); c=_tri_centroid(mesh,tid)
         if nr is None or c is None: continue
         nrl=[nr.x,nr.y,nr.z]; cl=[c.x,c.y,c.z]
+        # The result triangle's own 3 verts, for the full-coverage test below.
+        tpts=None
+        try:
+            r=getattr(GTRIPOS,_TRIPOS)(mesh,tid)
+            vs=[v for v in (r if isinstance(r,(tuple,list)) else [r]) if hasattr(v,"x")]
+            if len(vs)>=3: tpts=[[v.x,v.y,v.z] for v in vs[:3]]
+        except Exception: pass
         best=None; bestt=-1; bestpd=1e9
         for (t,f) in cells.get(_cell(cl),[])+big:
             fn=f["n"]
@@ -1388,7 +1395,14 @@ def retag_final(mesh, body):
             if abs(_dot(nrl,fn))<RETAG_NORMAL_DOT: continue
             pd=abs(_dot(cl,fn)-f["d"])
             if pd>15.0: continue                               # not on the face's plane
-            if not _pt_in_poly(cl,f["poly"],fn): continue      # centroid not covered by the polygon
+            # FULL COVERAGE: the face polygon must contain the WHOLE triangle, not just its centroid.
+            # Where a later brush only PARTIALLY overlaps a face, the centroid test hands one triangle
+            # of a quad to the rival and the other to the original, splitting the surface along the
+            # triangle DIAGONAL (the "big triangle" of wrong texture on id34/id406). Dark splits along
+            # the brush boundary (a straight edge); we can't without subdividing, so a partial overlap
+            # now leaves the original texture intact. The face's OWN triangles still match - they fill
+            # its polygon, and _pt_in_poly's 1.5cm tolerance admits verts on the boundary.
+            if not all(_pt_in_poly(q,f["poly"],fn) for q in (tpts or [cl])): continue
             if t>bestt or (t==bestt and pd<bestpd): bestt=t; bestpd=pd; best=f
         if best is not None:
             _set_matid_tri(mesh,tid,material_id(best["tex"]))

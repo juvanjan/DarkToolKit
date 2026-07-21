@@ -26,11 +26,11 @@
 
 import unreal, json, math
 
-GEO_PATH    = r"C:\Nex\DarkSimProject\DarkSimToolkit\test_missions\MISS5_mod2_geo.json"   # <-- SET (the *_geo.json)
+GEO_PATH    = r"C:\Nex\DarkSimProject\DarkSimToolkit\test_missions\14_geo.json"   # <-- SET (the *_geo.json)
 ASSET_PATH  = r"/Game/Mission/SM_Mission"
 BUILD_WATER = True        # also bake the water volume as a separate static mesh (SM_..._Water)
 BUILD_COLLISION = True    # give the mesh collision (complex-as-simple: the triangles ARE the collision)
-BUILD_WORLD_BOX = False    # True: start from the enclosing solid cuboid (brush 0) and carve into it (Dark
+BUILD_WORLD_BOX = True    # True: start from the enclosing solid cuboid (brush 0) and carve into it (Dark
                           #   default). False: start EMPTY - only additive/solid brushes appear, air carves
                           #   have nothing to cut (useful to preview individual brushes without the shell).
 TEST_LIMIT  = 0          # 0 = full mission; >0 = world solid + first N brushes (quick preview)
@@ -1095,7 +1095,9 @@ def _tile_uvoff(f):
     else:
         du,dv=_face_res_wh(f.get("tex"))
         tu=du*(2.0**(sc-20))*FEET_CM; tv=dv*(2.0**(sc-20))*FEET_CM
-    return tu, tv, float(f.get("uoff",0.0) or 0.0)/du, -float(f.get("voff",0.0) or 0.0)/dv
+    # Both offsets are NEGATED: DromEd's convention is that increasing the record u/v shifts the
+    # texture toward -U / -V (in DromEd, raising u slides the texture LEFT). Verified on 14.mis win323.
+    return tu, tv, -float(f.get("uoff",0.0) or 0.0)/du, -float(f.get("voff",0.0) or 0.0)/dv
 
 def _face_uv_transform(f):
     n=f["n"]; sc=int(f.get("sc",16))

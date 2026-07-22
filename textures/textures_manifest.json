@@ -1,5 +1,5 @@
 {
- "count": 333,
+ "count": 167,
  "textures": {
   "2ARCH": {
    "png": "2ARCH.png",
@@ -16,7 +16,8 @@
     "09.mis",
     "10.mis",
     "11.mis",
-    "12.mis"
+    "12.mis",
+    "14.mis"
    ]
   },
   "aaaa": {
@@ -34,12 +35,13 @@
     "09.mis",
     "10.mis",
     "12.mis",
-    "13.mis"
+    "13.mis",
+    "14.mis"
    ]
   },
   "abaswal4": {
    "png": "abaswal4.png",
-   "family": "civicb2",
+   "family": "CivicB2",
    "folder": "civicb2",
    "source": "abaswal4.dds",
    "family_matched": true,
@@ -49,25 +51,8 @@
    ],
    "scale_px": 64,
    "used_by": [
-    "MISS1_mod.mis",
-    "MISS5_mod.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
-   ]
-  },
-  "abaswal8": {
-   "png": "abaswal8.png",
-   "family": "civicb2",
-   "folder": "civicb2",
-   "source": "abaswal8.dds",
-   "family_matched": true,
-   "size": [
-    256,
-    512
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS1_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "ANGEL": {
@@ -85,7 +70,8 @@
     "09.mis",
     "10.mis",
     "11.mis",
-    "12.mis"
+    "12.mis",
+    "14.mis"
    ]
   },
   "ASFALT": {
@@ -113,82 +99,8 @@
     "10.mis",
     "11.mis",
     "12.mis",
-    "13.mis"
-   ]
-  },
-  "awin10": {
-   "png": "awin10.png",
-   "family": "civicb2",
-   "folder": "CivicB2",
-   "source": "fam.crf::CivicB2/Awin10.PCX",
-   "family_matched": true,
-   "size": [
-    256,
-    256
-   ],
-   "scale_px": 256,
-   "used_by": [
-    "MISS1_mod.mis"
-   ]
-  },
-  "balcon01": {
-   "png": "balcon01.png",
-   "family": "CivicBui",
-   "folder": "CivicBui",
-   "source": "fam.crf::CivicBui/Balcon01.PCX",
-   "family_matched": true,
-   "size": [
-    256,
-    128
-   ],
-   "scale_px": 256,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "Banner03": {
-   "png": "Banner03.png",
-   "family": "rescor_1",
-   "folder": "rescor_1",
-   "source": "fam.crf::rescor_1/Banner03.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "banner04": {
-   "png": "banner04.png",
-   "family": "rescor_1",
-   "folder": "rescor_1",
-   "source": "fam.crf::rescor_1/banner04.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "banner06": {
-   "png": "banner06.png",
-   "family": "rescor_1",
-   "folder": "rescor_1",
-   "source": "fam.crf::rescor_1/banner06.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
+    "13.mis",
+    "14.mis"
    ]
   },
   "bbbb": {
@@ -206,11 +118,12 @@
     "09.mis",
     "10.mis",
     "12.mis",
-    "13.mis"
+    "13.mis",
+    "14.mis"
    ]
   },
-  "bigbl": {
-   "png": "bigbl.png",
+  "BIGBL": {
+   "png": "BIGBL.png",
    "family": "core_1",
    "folder": "Core_1",
    "source": "bigbl.dds",
@@ -235,13 +148,13 @@
     "11.mis",
     "12.mis",
     "13.mis",
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
-  "bigbl2": {
-   "png": "bigbl2.png",
+  "BIGBL2": {
+   "png": "BIGBL2.png",
    "family": "core_1",
    "folder": "Core_1",
    "source": "BIGBL2.dds",
@@ -266,9 +179,9 @@
     "11.mis",
     "12.mis",
     "13.mis",
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "blin": {
@@ -283,11 +196,8 @@
    ],
    "scale_px": 128,
    "used_by": [
-    "MISS1_mod.mis",
-    "MISS5_mod.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis",
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "blout": {
@@ -302,11 +212,8 @@
    ],
    "scale_px": 128,
    "used_by": [
-    "MISS1_mod.mis",
-    "MISS5_mod.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis",
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "BLOX": {
@@ -334,11 +241,12 @@
     "10.mis",
     "11.mis",
     "12.mis",
-    "13.mis"
+    "13.mis",
+    "14.mis"
    ]
   },
-  "bloxwall": {
-   "png": "bloxwall.png",
+  "BLOXWALL": {
+   "png": "BLOXWALL.png",
    "family": "core_1",
    "folder": "Core_1",
    "source": "bloxwall.dds",
@@ -363,14 +271,13 @@
     "11.mis",
     "12.mis",
     "13.mis",
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis",
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
-  "blubrik1": {
-   "png": "blubrik1.png",
+  "Blubrik1": {
+   "png": "Blubrik1.png",
    "family": "core_1",
    "folder": "Core_1",
    "source": "blubrik1.dds",
@@ -395,14 +302,28 @@
     "11.mis",
     "12.mis",
     "13.mis",
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis",
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
-  "blustn": {
-   "png": "blustn.png",
+  "blushngl": {
+   "png": "blushngl.png",
+   "family": "city",
+   "folder": "city",
+   "source": "blushngl.dds",
+   "family_matched": true,
+   "size": [
+    512,
+    512
+   ],
+   "scale_px": 128,
+   "used_by": [
+    "14.mis"
+   ]
+  },
+  "Blustn": {
+   "png": "Blustn.png",
    "family": "core_1",
    "folder": "Core_1",
    "source": "blustn.dds",
@@ -427,10 +348,9 @@
     "11.mis",
     "12.mis",
     "13.mis",
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis",
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "BONE1": {
@@ -448,7 +368,8 @@
     "09.mis",
     "10.mis",
     "11.mis",
-    "12.mis"
+    "12.mis",
+    "14.mis"
    ]
   },
   "BONE2": {
@@ -466,52 +387,8 @@
     "09.mis",
     "10.mis",
     "11.mis",
-    "12.mis"
-   ]
-  },
-  "books01a": {
-   "png": "books01a.png",
-   "family": "rescor_1",
-   "folder": "rescor_1",
-   "source": "fam.crf::rescor_1/books01a.PCX",
-   "family_matched": true,
-   "size": [
-    256,
-    256
-   ],
-   "scale_px": 256,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "books03a": {
-   "png": "books03a.png",
-   "family": "rescor_1",
-   "folder": "rescor_1",
-   "source": "fam.crf::rescor_1/books03a.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    256
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS1_mod.mis"
-   ]
-  },
-  "books04a": {
-   "png": "books04a.png",
-   "family": "rescor_1",
-   "folder": "rescor_1",
-   "source": "fam.crf::rescor_1/books04a.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    256
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS1_mod.mis"
+    "12.mis",
+    "14.mis"
    ]
   },
   "books2b": {
@@ -526,24 +403,8 @@
    ],
    "scale_px": 128,
    "used_by": [
-    "MISS5_mod.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
-   ]
-  },
-  "border02": {
-   "png": "border02.png",
-   "family": "ArtDeco",
-   "folder": "ArtDeco",
-   "source": "fam.crf::ArtDeco/Border02.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "brick1": {
@@ -558,10 +419,8 @@
    ],
    "scale_px": 64,
    "used_by": [
-    "MISS5_mod.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis",
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "brick2128": {
@@ -576,14 +435,12 @@
    ],
    "scale_px": 128,
    "used_by": [
-    "MISS5_mod.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis",
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
-  "brickfl1": {
-   "png": "brickfl1.png",
+  "Brickfl1": {
+   "png": "Brickfl1.png",
    "family": "core_1",
    "folder": "Core_1",
    "source": "Brickfl1.dds",
@@ -608,24 +465,9 @@
     "11.mis",
     "12.mis",
     "13.mis",
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
-   ]
-  },
-  "Brickfl2": {
-   "png": "Brickfl2.png",
-   "family": "core_2",
-   "folder": "Core_2",
-   "source": "fam.crf::Core_2/Brickfl2.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    64
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS1_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "Brickfl3": {
@@ -653,38 +495,8 @@
     "10.mis",
     "11.mis",
     "12.mis",
-    "13.mis"
-   ]
-  },
-  "Bricks": {
-   "png": "Bricks.png",
-   "family": "core_2",
-   "folder": "Core_2",
-   "source": "bricks.dds",
-   "family_matched": true,
-   "size": [
-    512,
-    512
-   ],
-   "scale_px": 256,
-   "used_by": [
-    "MISS1_mod.mis",
-    "MISS9_mod.mis"
-   ]
-  },
-  "Bricks2": {
-   "png": "Bricks2.png",
-   "family": "core_2",
-   "folder": "Core_2",
-   "source": "bricks2.dds",
-   "family_matched": true,
-   "size": [
-    512,
-    512
-   ],
-   "scale_px": 256,
-   "used_by": [
-    "MISS9_mod.mis"
+    "13.mis",
+    "14.mis"
    ]
   },
   "brickwd": {
@@ -699,9 +511,8 @@
    ],
    "scale_px": 128,
    "used_by": [
-    "MISS5_mod.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "brickwl": {
@@ -716,55 +527,8 @@
    ],
    "scale_px": 128,
    "used_by": [
-    "MISS5_mod.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
-   ]
-  },
-  "Brnstn2s": {
-   "png": "Brnstn2s.png",
-   "family": "core_2",
-   "folder": "Core_2",
-   "source": "brnstn2s.dds",
-   "family_matched": true,
-   "size": [
-    512,
-    512
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS1_mod.mis",
-    "MISS9_mod.mis"
-   ]
-  },
-  "broz3": {
-   "png": "broz3.png",
-   "family": "newmetal",
-   "folder": "NewMetal",
-   "source": "broz3.dds",
-   "family_matched": true,
-   "size": [
-    512,
-    512
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS1_mod.mis"
-   ]
-  },
-  "broz4128": {
-   "png": "broz4128.png",
-   "family": "newmetal",
-   "folder": "NewMetal",
-   "source": "broz4128.dds",
-   "family_matched": true,
-   "size": [
-    512,
-    512
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS1_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "BRSSDOOR": {
@@ -782,7 +546,8 @@
     "09.mis",
     "10.mis",
     "11.mis",
-    "12.mis"
+    "12.mis",
+    "14.mis"
    ]
   },
   "BRSSLION": {
@@ -800,38 +565,8 @@
     "09.mis",
     "10.mis",
     "11.mis",
-    "12.mis"
-   ]
-  },
-  "Bsrock": {
-   "png": "Bsrock.png",
-   "family": "core_2",
-   "folder": "Core_2",
-   "source": "bsrock.dds",
-   "family_matched": true,
-   "size": [
-    512,
-    512
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "Bstnwal1": {
-   "png": "Bstnwal1.png",
-   "family": "core_2",
-   "folder": "Core_2",
-   "source": "bstnwal1.dds",
-   "family_matched": true,
-   "size": [
-    512,
-    512
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS1_mod.mis",
-    "MISS9_mod.mis"
+    "12.mis",
+    "14.mis"
    ]
   },
   "Cave": {
@@ -860,23 +595,7 @@
     "11.mis",
     "12.mis",
     "13.mis",
-    "MISS9_mod.mis"
-   ]
-  },
-  "Cavedirt": {
-   "png": "Cavedirt.png",
-   "family": "core_2",
-   "folder": "Core_2",
-   "source": "fam.crf::Core_2/Cavedirt.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    64
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS1_mod.mis",
-    "MISS9_mod.mis"
+    "14.mis"
    ]
   },
   "Cavrgh5": {
@@ -904,7 +623,8 @@
     "10.mis",
     "11.mis",
     "12.mis",
-    "13.mis"
+    "13.mis",
+    "14.mis"
    ]
   },
   "CAVTRANS": {
@@ -922,7 +642,8 @@
     "09.mis",
     "10.mis",
     "11.mis",
-    "12.mis"
+    "12.mis",
+    "14.mis"
    ]
   },
   "cccc": {
@@ -940,7 +661,8 @@
     "09.mis",
     "10.mis",
     "12.mis",
-    "13.mis"
+    "13.mis",
+    "14.mis"
    ]
   },
   "cdoor01": {
@@ -955,26 +677,9 @@
    ],
    "scale_px": 128,
    "used_by": [
-    "MISS1_mod.mis",
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis",
-    "MISS9_mod.mis"
-   ]
-  },
-  "ceilstar": {
-   "png": "ceilstar.png",
-   "family": "ancient",
-   "folder": "ancient",
-   "source": "fam.crf::ancient/Ceilstar.PCX",
-   "family_matched": true,
-   "size": [
-    16,
-    16
-   ],
-   "scale_px": 16,
-   "used_by": [
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "CELT1": {
@@ -992,7 +697,8 @@
     "09.mis",
     "10.mis",
     "11.mis",
-    "12.mis"
+    "12.mis",
+    "14.mis"
    ]
   },
   "Cement": {
@@ -1021,11 +727,11 @@
     "11.mis",
     "12.mis",
     "13.mis",
-    "MISS9_mod.mis"
+    "14.mis"
    ]
   },
-  "Cfwinf01": {
-   "png": "Cfwinf01.png",
+  "cfwinf01": {
+   "png": "cfwinf01.png",
    "family": "city",
    "folder": "city",
    "source": "cfwinf01.dds",
@@ -1036,10 +742,9 @@
    ],
    "scale_px": 64,
    "used_by": [
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis",
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "cfwinl01": {
@@ -1054,14 +759,13 @@
    ],
    "scale_px": 64,
    "used_by": [
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis",
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
-  "clnbrik1": {
-   "png": "clnbrik1.png",
+  "Clnbrik1": {
+   "png": "Clnbrik1.png",
    "family": "core_1",
    "folder": "Core_1",
    "source": "fam.crf::Core_1/Clnbrik1.PCX",
@@ -1086,10 +790,9 @@
     "11.mis",
     "12.mis",
     "13.mis",
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis",
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "Cobbel": {
@@ -1117,11 +820,12 @@
     "10.mis",
     "11.mis",
     "12.mis",
-    "13.mis"
+    "13.mis",
+    "14.mis"
    ]
   },
-  "cobl2": {
-   "png": "cobl2.png",
+  "Cobl2": {
+   "png": "Cobl2.png",
    "family": "core_1",
    "folder": "Core_1",
    "source": "fam.crf::Core_1/Cobl2.PCX",
@@ -1146,10 +850,9 @@
     "11.mis",
     "12.mis",
     "13.mis",
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis",
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "Cobl2lo": {
@@ -1177,11 +880,12 @@
     "10.mis",
     "11.mis",
     "12.mis",
-    "13.mis"
+    "13.mis",
+    "14.mis"
    ]
   },
-  "cobls1": {
-   "png": "cobls1.png",
+  "Cobls1": {
+   "png": "Cobls1.png",
    "family": "core_1",
    "folder": "Core_1",
    "source": "cobls1.dds",
@@ -1206,39 +910,9 @@
     "11.mis",
     "12.mis",
     "13.mis",
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
-   ]
-  },
-  "col01": {
-   "png": "col01.png",
-   "family": "CivicBui",
-   "folder": "CivicBui",
-   "source": "fam.crf::CivicBui/Col01.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    128
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS1_mod.mis"
-   ]
-  },
-  "col01a": {
-   "png": "col01a.png",
-   "family": "CivicBui",
-   "folder": "CivicBui",
-   "source": "fam.crf::CivicBui/Col01a.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    32
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS1_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "CON1": {
@@ -1256,7 +930,8 @@
     "09.mis",
     "10.mis",
     "11.mis",
-    "12.mis"
+    "12.mis",
+    "14.mis"
    ]
   },
   "CON1SML": {
@@ -1274,11 +949,12 @@
     "09.mis",
     "10.mis",
     "11.mis",
-    "12.mis"
+    "12.mis",
+    "14.mis"
    ]
   },
-  "cracked": {
-   "png": "cracked.png",
+  "Cracked": {
+   "png": "Cracked.png",
    "family": "core_1",
    "folder": "Core_1",
    "source": "fam.crf::Core_1/Cracked.PCX",
@@ -1303,23 +979,7 @@
     "11.mis",
     "12.mis",
     "13.mis",
-    "MISS1_mod.mis",
-    "MISS9_mod.mis"
-   ]
-  },
-  "Crag": {
-   "png": "Crag.png",
-   "family": "core_2",
-   "folder": "Core_2",
-   "source": "crag.dds",
-   "family_matched": true,
-   "size": [
-    1024,
-    1024
-   ],
-   "scale_px": 256,
-   "used_by": [
-    "MISS9_mod.mis"
+    "14.mis"
    ]
   },
   "Cragston": {
@@ -1348,27 +1008,11 @@
     "11.mis",
     "12.mis",
     "13.mis",
-    "MISS9_mod.mis"
+    "14.mis"
    ]
   },
-  "creat4": {
-   "png": "creat4.png",
-   "family": "core_2",
-   "folder": "Core_2",
-   "source": "creat4.dds",
-   "family_matched": true,
-   "size": [
-    512,
-    512
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS1_mod.mis",
-    "MISS9_mod.mis"
-   ]
-  },
-  "Cris02": {
-   "png": "Cris02.png",
+  "cris02": {
+   "png": "cris02.png",
    "family": "city",
    "folder": "city",
    "source": "cris02.dds",
@@ -1379,9 +1023,9 @@
    ],
    "scale_px": 128,
    "used_by": [
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "cris03": {
@@ -1396,10 +1040,9 @@
    ],
    "scale_px": 128,
    "used_by": [
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis",
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "cris04": {
@@ -1414,13 +1057,13 @@
    ],
    "scale_px": 128,
    "used_by": [
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
-  "Cris05": {
-   "png": "Cris05.png",
+  "cris05": {
+   "png": "cris05.png",
    "family": "city",
    "folder": "city",
    "source": "cris05.dds",
@@ -1431,13 +1074,13 @@
    ],
    "scale_px": 128,
    "used_by": [
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
-  "Cris06": {
-   "png": "Cris06.png",
+  "cris06": {
+   "png": "cris06.png",
    "family": "city",
    "folder": "city",
    "source": "cris06.dds",
@@ -1448,13 +1091,13 @@
    ],
    "scale_px": 128,
    "used_by": [
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
-  "Cris06cl": {
-   "png": "Cris06cl.png",
+  "cris06cl": {
+   "png": "cris06cl.png",
    "family": "city",
    "folder": "city",
    "source": "cris06cl.dds",
@@ -1465,9 +1108,9 @@
    ],
    "scale_px": 128,
    "used_by": [
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "cris07": {
@@ -1482,9 +1125,24 @@
    ],
    "scale_px": 128,
    "used_by": [
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
+    "MISS5_mod2_mini.mis"
+   ]
+  },
+  "Criswd": {
+   "png": "Criswd.png",
+   "family": "city",
+   "folder": "city",
+   "source": "fam.crf::city/Criswd.PCX",
+   "family_matched": true,
+   "size": [
+    32,
+    32
+   ],
+   "scale_px": 32,
+   "used_by": [
+    "14.mis"
    ]
   },
   "CUP": {
@@ -1502,67 +1160,8 @@
     "09.mis",
     "10.mis",
     "11.mis",
-    "12.mis"
-   ]
-  },
-  "darbasic": {
-   "png": "darbasic.png",
-   "family": "WdFloor",
-   "folder": "WdFloor",
-   "source": "fam.crf::WdFloor/darbasic.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "dceil02": {
-   "png": "dceil02.png",
-   "family": "ArtDeco",
-   "folder": "ArtDeco",
-   "source": "fam.crf::ArtDeco/Dceil02.PCX",
-   "family_matched": true,
-   "size": [
-    256,
-    128
-   ],
-   "scale_px": 256,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "ddetal10": {
-   "png": "ddetal10.png",
-   "family": "civicb2",
-   "folder": "CivicB2",
-   "source": "fam.crf::CivicB2/DDetal10.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS1_mod.mis"
-   ]
-  },
-  "dec01": {
-   "png": "dec01.png",
-   "family": "rescor_1",
-   "folder": "rescor_1",
-   "source": "fam.crf::rescor_1/dec01.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    32
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS9_mod.mis"
+    "12.mis",
+    "14.mis"
    ]
   },
   "DEDGUY": {
@@ -1580,7 +1179,8 @@
     "09.mis",
     "10.mis",
     "11.mis",
-    "12.mis"
+    "12.mis",
+    "14.mis"
    ]
   },
   "DEDGUY2": {
@@ -1598,7 +1198,8 @@
     "09.mis",
     "10.mis",
     "11.mis",
-    "12.mis"
+    "12.mis",
+    "14.mis"
    ]
   },
   "DEDGUY3": {
@@ -1616,7 +1217,8 @@
     "09.mis",
     "10.mis",
     "11.mis",
-    "12.mis"
+    "12.mis",
+    "14.mis"
    ]
   },
   "DET1": {
@@ -1634,11 +1236,27 @@
     "09.mis",
     "10.mis",
     "11.mis",
-    "12.mis"
+    "12.mis",
+    "14.mis"
    ]
   },
-  "Door11": {
-   "png": "Door11.png",
+  "Detail1": {
+   "png": "Detail1.png",
+   "family": "city",
+   "folder": "city",
+   "source": "fam.crf::city/Detail1.PCX",
+   "family_matched": true,
+   "size": [
+    64,
+    64
+   ],
+   "scale_px": 64,
+   "used_by": [
+    "14.mis"
+   ]
+  },
+  "door11": {
+   "png": "door11.png",
    "family": "city",
    "folder": "city",
    "source": "door11.dds",
@@ -1649,13 +1267,13 @@
    ],
    "scale_px": 64,
    "used_by": [
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
-  "Door2": {
-   "png": "Door2.png",
+  "door2": {
+   "png": "door2.png",
    "family": "city",
    "folder": "city",
    "source": "door2.dds",
@@ -1666,13 +1284,13 @@
    ],
    "scale_px": 64,
    "used_by": [
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
-  "Door3": {
-   "png": "Door3.png",
+  "door3": {
+   "png": "door3.png",
    "family": "city",
    "folder": "city",
    "source": "door3.dds",
@@ -1683,31 +1301,31 @@
    ],
    "scale_px": 64,
    "used_by": [
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
-  "doorwy1a": {
-   "png": "doorwy1a.png",
-   "family": "rescor_1",
-   "folder": "rescor_1",
-   "source": "fam.crf::rescor_1/doorwy1a.PCX",
+  "doordk": {
+   "png": "doordk.png",
+   "family": "city",
+   "folder": "city",
+   "source": "doordk.dds",
    "family_matched": true,
    "size": [
-    128,
-    128
+    256,
+    512
    ],
-   "scale_px": 128,
+   "scale_px": 64,
    "used_by": [
-    "MISS9_mod.mis"
+    "14.mis"
    ]
   },
-  "Fantile": {
-   "png": "Fantile.png",
-   "family": "core_2",
-   "folder": "Core_2",
-   "source": "fam.crf::Core_2/Fantile.PCX",
+  "Famrelef": {
+   "png": "Famrelef.png",
+   "family": "city",
+   "folder": "city",
+   "source": "fam.crf::city/Famrelef.PCX",
    "family_matched": true,
    "size": [
     64,
@@ -1715,7 +1333,7 @@
    ],
    "scale_px": 64,
    "used_by": [
-    "MISS9_mod.mis"
+    "14.mis"
    ]
   },
   "Filston0": {
@@ -1743,7 +1361,8 @@
     "10.mis",
     "11.mis",
     "12.mis",
-    "13.mis"
+    "13.mis",
+    "14.mis"
    ]
   },
   "firepl01": {
@@ -1758,280 +1377,8 @@
    ],
    "scale_px": 128,
    "used_by": [
-    "MISS5_mod.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
-   ]
-  },
-  "firepl03": {
-   "png": "firepl03.png",
-   "family": "rescor_1",
-   "folder": "rescor_1",
-   "source": "fam.crf::rescor_1/firepl03.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS1_mod.mis"
-   ]
-  },
-  "floor02": {
-   "png": "floor02.png",
-   "family": "MBFloor",
-   "folder": "MBFloor",
-   "source": "fam.crf::MBFloor/floor02.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "floor03": {
-   "png": "floor03.png",
-   "family": "MBFloor",
-   "folder": "MBFloor",
-   "source": "fam.crf::MBFloor/floor03.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "floor06": {
-   "png": "floor06.png",
-   "family": "MBFloor",
-   "folder": "MBFloor",
-   "source": "fam.crf::MBFloor/floor06.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "floor07": {
-   "png": "floor07.png",
-   "family": "MBFloor",
-   "folder": "MBFloor",
-   "source": "fam.crf::MBFloor/floor07.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "floor10": {
-   "png": "floor10.png",
-   "family": "MBFloor",
-   "folder": "MBFloor",
-   "source": "fam.crf::MBFloor/floor10.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "floor11": {
-   "png": "floor11.png",
-   "family": "MBFloor",
-   "folder": "MBFloor",
-   "source": "fam.crf::MBFloor/floor11.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "FloorD01": {
-   "png": "FloorD01.png",
-   "family": "MBFloor",
-   "folder": "MBFloor",
-   "source": "fam.crf::MBFloor/FloorD01.PCX",
-   "family_matched": true,
-   "size": [
-    256,
-    256
-   ],
-   "scale_px": 256,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "FloorD04": {
-   "png": "FloorD04.png",
-   "family": "MBFloor",
-   "folder": "MBFloor",
-   "source": "fam.crf::MBFloor/FloorD04.PCX",
-   "family_matched": true,
-   "size": [
-    256,
-    256
-   ],
-   "scale_px": 256,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "FloorD05": {
-   "png": "FloorD05.png",
-   "family": "MBFloor",
-   "folder": "MBFloor",
-   "source": "fam.crf::MBFloor/FloorD05.PCX",
-   "family_matched": true,
-   "size": [
-    256,
-    256
-   ],
-   "scale_px": 256,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "FloorD06": {
-   "png": "FloorD06.png",
-   "family": "MBFloor",
-   "folder": "MBFloor",
-   "source": "fam.crf::MBFloor/FloorD06.PCX",
-   "family_matched": true,
-   "size": [
-    256,
-    256
-   ],
-   "scale_px": 256,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "FloorR02": {
-   "png": "FloorR02.png",
-   "family": "MBFloor",
-   "folder": "MBFloor",
-   "source": "fam.crf::MBFloor/FloorR02.PCX",
-   "family_matched": true,
-   "size": [
-    256,
-    128
-   ],
-   "scale_px": 256,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "foraut1": {
-   "png": "foraut1.png",
-   "family": "vmaw",
-   "folder": "vmaw",
-   "source": "fam.crf::vmaw/foraut1.pcx",
-   "family_matched": true,
-   "size": [
-    256,
-    256
-   ],
-   "scale_px": 256,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "Frame1": {
-   "png": "Frame1.png",
-   "family": "VicM01",
-   "folder": "VicM01",
-   "source": "fam.crf::VicM01/Frame1.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    128
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS1_mod.mis"
-   ]
-  },
-  "Frame1a": {
-   "png": "Frame1a.png",
-   "family": "VicM01",
-   "folder": "VicM01",
-   "source": "fam.crf::VicM01/Frame1a.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    64
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS1_mod.mis"
-   ]
-  },
-  "Frame2": {
-   "png": "Frame2.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/Frame2.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    128
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "Frame2a": {
-   "png": "Frame2a.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/Frame2a.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    64
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "ftile1": {
-   "png": "ftile1.png",
-   "family": "core_2",
-   "folder": "Core_2",
-   "source": "fam.crf::Core_2/Ftile1.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    64
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS1_mod.mis",
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "Ftile3": {
@@ -2060,54 +1407,7 @@
     "11.mis",
     "12.mis",
     "13.mis",
-    "MISS9_mod.mis"
-   ]
-  },
-  "Ftile4": {
-   "png": "Ftile4.png",
-   "family": "core_2",
-   "folder": "Core_2",
-   "source": "fam.crf::Core_2/Ftile4.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    64
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS1_mod.mis",
-    "MISS9_mod.mis"
-   ]
-  },
-  "ftile5": {
-   "png": "ftile5.png",
-   "family": "core_2",
-   "folder": "Core_2",
-   "source": "fam.crf::Core_2/Ftile5.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    64
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS1_mod.mis",
-    "MISS9_mod.mis"
-   ]
-  },
-  "gdtpanel": {
-   "png": "gdtpanel.png",
-   "family": "NewMech",
-   "folder": "NewMech",
-   "source": "fam.crf::NewMech/GDTPanel.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    256
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
+    "14.mis"
    ]
   },
   "GFACE": {
@@ -2125,7 +1425,8 @@
     "09.mis",
     "10.mis",
     "11.mis",
-    "12.mis"
+    "12.mis",
+    "14.mis"
    ]
   },
   "Granit2": {
@@ -2153,14 +1454,15 @@
     "10.mis",
     "11.mis",
     "12.mis",
-    "13.mis"
+    "13.mis",
+    "14.mis"
    ]
   },
-  "Granwall": {
-   "png": "Granwall.png",
-   "family": "core_2",
-   "folder": "Core_2",
-   "source": "fam.crf::Core_2/Granwall.PCX",
+  "Gratesqr": {
+   "png": "Gratesqr.png",
+   "family": "city",
+   "folder": "city",
+   "source": "fam.crf::city/Gratesqr.PCX",
    "family_matched": true,
    "size": [
     64,
@@ -2168,23 +1470,7 @@
    ],
    "scale_px": 64,
    "used_by": [
-    "MISS1_mod.mis"
-   ]
-  },
-  "grassj1": {
-   "png": "grassj1.png",
-   "family": "vmaw",
-   "folder": "vmaw",
-   "source": "grassj1.dds",
-   "family_matched": true,
-   "size": [
-    512,
-    512
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS1_mod.mis",
-    "MISS9_mod.mis"
+    "14.mis"
    ]
   },
   "grst6128": {
@@ -2199,10 +1485,8 @@
    ],
    "scale_px": 128,
    "used_by": [
-    "MISS5_mod.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis",
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "Gstnwal3": {
@@ -2230,7 +1514,8 @@
     "10.mis",
     "11.mis",
     "12.mis",
-    "13.mis"
+    "13.mis",
+    "14.mis"
    ]
   },
   "Gstone1": {
@@ -2259,7 +1544,7 @@
     "11.mis",
     "12.mis",
     "13.mis",
-    "MISS9_mod.mis"
+    "14.mis"
    ]
   },
   "Gstone2": {
@@ -2288,7 +1573,7 @@
     "11.mis",
     "12.mis",
     "13.mis",
-    "MISS9_mod.mis"
+    "14.mis"
    ]
   },
   "GTOMB": {
@@ -2306,7 +1591,8 @@
     "09.mis",
     "10.mis",
     "11.mis",
-    "12.mis"
+    "12.mis",
+    "14.mis"
    ]
   },
   "HAMMER1": {
@@ -2324,7 +1610,8 @@
     "09.mis",
     "10.mis",
     "11.mis",
-    "12.mis"
+    "12.mis",
+    "14.mis"
    ]
   },
   "Hewn3": {
@@ -2353,7 +1640,7 @@
     "11.mis",
     "12.mis",
     "13.mis",
-    "MISS9_mod.mis"
+    "14.mis"
    ]
   },
   "Hewn4": {
@@ -2382,37 +1669,7 @@
     "11.mis",
     "12.mis",
     "13.mis",
-    "MISS9_mod.mis"
-   ]
-  },
-  "Hothou1": {
-   "png": "Hothou1.png",
-   "family": "rescor_1",
-   "folder": "rescor_1",
-   "source": "hothou1.dds",
-   "family_matched": true,
-   "size": [
-    512,
-    512
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "Hothou2": {
-   "png": "Hothou2.png",
-   "family": "rescor_1",
-   "folder": "rescor_1",
-   "source": "fam.crf::rescor_1/Hothou2.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    64
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS9_mod.mis"
+    "14.mis"
    ]
   },
   "iron3": {
@@ -2427,9 +1684,8 @@
    ],
    "scale_px": 128,
    "used_by": [
-    "MISS5_mod.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "Ironrock": {
@@ -2457,11 +1713,12 @@
     "10.mis",
     "11.mis",
     "12.mis",
-    "13.mis"
+    "13.mis",
+    "14.mis"
    ]
   },
-  "Ironwood": {
-   "png": "Ironwood.png",
+  "ironwood": {
+   "png": "ironwood.png",
    "family": "core_2",
    "folder": "Core_2",
    "source": "ironwood.dds",
@@ -2472,11 +1729,8 @@
    ],
    "scale_px": 64,
    "used_by": [
-    "MISS1_mod.mis",
-    "MISS5_mod.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis",
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "KNIGHT": {
@@ -2494,7 +1748,8 @@
     "09.mis",
     "10.mis",
     "11.mis",
-    "12.mis"
+    "12.mis",
+    "14.mis"
    ]
   },
   "Ledge": {
@@ -2523,7 +1778,7 @@
     "11.mis",
     "12.mis",
     "13.mis",
-    "MISS9_mod.mis"
+    "14.mis"
    ]
   },
   "Ledge1": {
@@ -2551,7 +1806,8 @@
     "10.mis",
     "11.mis",
     "12.mis",
-    "13.mis"
+    "13.mis",
+    "14.mis"
    ]
   },
   "LINK": {
@@ -2569,7 +1825,8 @@
     "09.mis",
     "10.mis",
     "11.mis",
-    "12.mis"
+    "12.mis",
+    "14.mis"
    ]
   },
   "LIONCUP": {
@@ -2587,307 +1844,8 @@
     "09.mis",
     "10.mis",
     "11.mis",
-    "12.mis"
-   ]
-  },
-  "m01ceil3": {
-   "png": "m01ceil3.png",
-   "family": "VicM01",
-   "folder": "VicM01",
-   "source": "fam.crf::VicM01/m01ceil3.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    64
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS1_mod.mis"
-   ]
-  },
-  "m01ceil4": {
-   "png": "m01ceil4.png",
-   "family": "VicM01",
-   "folder": "VicM01",
-   "source": "fam.crf::VicM01/m01ceil4.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS1_mod.mis"
-   ]
-  },
-  "m01ceil5": {
-   "png": "m01ceil5.png",
-   "family": "VicM01",
-   "folder": "VicM01",
-   "source": "fam.crf::VicM01/m01ceil5.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS1_mod.mis"
-   ]
-  },
-  "m01ceil6": {
-   "png": "m01ceil6.png",
-   "family": "VicM01",
-   "folder": "VicM01",
-   "source": "fam.crf::VicM01/m01ceil6.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS1_mod.mis"
-   ]
-  },
-  "m01ceil7": {
-   "png": "m01ceil7.png",
-   "family": "VicM01",
-   "folder": "VicM01",
-   "source": "fam.crf::VicM01/m01ceil7.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS1_mod.mis"
-   ]
-  },
-  "m01ceil8": {
-   "png": "m01ceil8.png",
-   "family": "VicM01",
-   "folder": "VicM01",
-   "source": "fam.crf::VicM01/m01ceil8.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS1_mod.mis"
-   ]
-  },
-  "m09ceil1": {
-   "png": "m09ceil1.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/m09ceil1.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "m09ceil2": {
-   "png": "m09ceil2.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/m09ceil2.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "m09ceil3": {
-   "png": "m09ceil3.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/m09ceil3.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    64
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "m09ceil4": {
-   "png": "m09ceil4.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/m09ceil4.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "m09ceil5": {
-   "png": "m09ceil5.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/m09ceil5.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "m09ceil6": {
-   "png": "m09ceil6.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/m09ceil6.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "m09ceil7": {
-   "png": "m09ceil7.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/m09ceil7.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "m09ceil8": {
-   "png": "m09ceil8.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/m09ceil8.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "m09ceilb": {
-   "png": "m09ceilb.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/m09ceilb.PCX",
-   "family_matched": true,
-   "size": [
-    32,
-    64
-   ],
-   "scale_px": 32,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "m09ceilm": {
-   "png": "m09ceilm.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/m09ceilm.PCX",
-   "family_matched": true,
-   "size": [
-    32,
-    128
-   ],
-   "scale_px": 32,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "Marb2": {
-   "png": "Marb2.png",
-   "family": "core_2",
-   "folder": "Core_2",
-   "source": "fam.crf::Core_2/Marb2.PCX",
-   "family_matched": true,
-   "size": [
-    32,
-    32
-   ],
-   "scale_px": 32,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "MarbWH": {
-   "png": "MarbWH.png",
-   "family": "MBFloor",
-   "folder": "MBFloor",
-   "source": "fam.crf::MBFloor/MarbWH.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "MarbWhRn": {
-   "png": "MarbWhRn.png",
-   "family": "MBFloor",
-   "folder": "MBFloor",
-   "source": "fam.crf::MBFloor/MarbWhRn.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    256
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "Matt": {
-   "png": "Matt.png",
-   "family": "WdFloor",
-   "folder": "WdFloor",
-   "source": "fam.crf::WdFloor/Matt.PCX",
-   "family_matched": true,
-   "size": [
-    256,
-    128
-   ],
-   "scale_px": 256,
-   "used_by": [
-    "MISS9_mod.mis"
+    "12.mis",
+    "14.mis"
    ]
   },
   "mcobbl02": {
@@ -2902,9 +1860,8 @@
    ],
    "scale_px": 64,
    "used_by": [
-    "MISS5_mod.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "mold03a": {
@@ -2919,46 +1876,15 @@
    ],
    "scale_px": 128,
    "used_by": [
-    "MISS5_mod.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
-  "mold09": {
-   "png": "mold09.png",
-   "family": "civicb2",
-   "folder": "CivicB2",
-   "source": "fam.crf::CivicB2/Mold09.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    64
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS1_mod.mis"
-   ]
-  },
-  "mold11": {
-   "png": "mold11.png",
-   "family": "civicb2",
-   "folder": "CivicB2",
-   "source": "fam.crf::CivicB2/Mold11.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    64
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS1_mod.mis"
-   ]
-  },
-  "Mosaic3": {
-   "png": "Mosaic3.png",
-   "family": "core_2",
-   "folder": "Core_2",
-   "source": "fam.crf::Core_2/Mosaic3.PCX",
+  "Mould": {
+   "png": "Mould.png",
+   "family": "city",
+   "folder": "city",
+   "source": "fam.crf::city/Mould.PCX",
    "family_matched": true,
    "size": [
     64,
@@ -2966,22 +1892,7 @@
    ],
    "scale_px": 64,
    "used_by": [
-    "MISS1_mod.mis"
-   ]
-  },
-  "mstn1128": {
-   "png": "mstn1128.png",
-   "family": "Core_3",
-   "folder": "Core_3",
-   "source": "fam.crf::Core_3/mstn1128.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
+    "14.mis"
    ]
   },
   "mstn4128": {
@@ -2996,9 +1907,8 @@
    ],
    "scale_px": 128,
    "used_by": [
-    "MISS5_mod.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "mstone01": {
@@ -3013,24 +1923,8 @@
    ],
    "scale_px": 64,
    "used_by": [
-    "MISS5_mod.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
-   ]
-  },
-  "mstone03": {
-   "png": "mstone03.png",
-   "family": "rescor_2",
-   "folder": "rescor_2",
-   "source": "fam.crf::rescor_2/mstone03.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    64
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "mstone04": {
@@ -3045,39 +1939,8 @@
    ],
    "scale_px": 64,
    "used_by": [
-    "MISS5_mod.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
-   ]
-  },
-  "mwood02": {
-   "png": "mwood02.png",
-   "family": "rescor_2",
-   "folder": "rescor_2",
-   "source": "fam.crf::rescor_2/mwood02.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    64
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "obaswal": {
-   "png": "obaswal.png",
-   "family": "CivicBui",
-   "folder": "CivicBui",
-   "source": "fam.crf::CivicBui/OBASWAL.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "obaswal2": {
@@ -3092,14 +1955,12 @@
    ],
    "scale_px": 64,
    "used_by": [
-    "MISS5_mod.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis",
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
-  "obaswal7": {
-   "png": "obaswal7.png",
+  "Obaswal7": {
+   "png": "Obaswal7.png",
    "family": "core_1",
    "folder": "Core_1",
    "source": "obaswal7.dds",
@@ -3124,10 +1985,9 @@
     "11.mis",
     "12.mis",
     "13.mis",
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis",
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "Odstone": {
@@ -3156,69 +2016,7 @@
     "11.mis",
     "12.mis",
     "13.mis",
-    "MISS9_mod.mis"
-   ]
-  },
-  "oven2": {
-   "png": "oven2.png",
-   "family": "rescor_1",
-   "folder": "rescor_1",
-   "source": "fam.crf::rescor_1/oven2.PCX",
-   "family_matched": true,
-   "size": [
-    32,
-    128
-   ],
-   "scale_px": 32,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "oven3": {
-   "png": "oven3.png",
-   "family": "rescor_1",
-   "folder": "rescor_1",
-   "source": "fam.crf::rescor_1/oven3.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    32
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS1_mod.mis",
-    "MISS9_mod.mis"
-   ]
-  },
-  "palbasic": {
-   "png": "palbasic.png",
-   "family": "WdFloor",
-   "folder": "wdfloor",
-   "source": "palbasic.dds",
-   "family_matched": true,
-   "size": [
-    512,
-    512
-   ],
-   "scale_px": 256,
-   "used_by": [
-    "MISS1_mod.mis",
-    "MISS9_mod.mis"
-   ]
-  },
-  "palslant": {
-   "png": "palslant.png",
-   "family": "WdFloor",
-   "folder": "WdFloor",
-   "source": "fam.crf::WdFloor/palslant.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
+    "14.mis"
    ]
   },
   "parkay64": {
@@ -3233,9 +2031,8 @@
    ],
    "scale_px": 64,
    "used_by": [
-    "MISS5_mod.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "PARTY": {
@@ -3253,42 +2050,12 @@
     "09.mis",
     "10.mis",
     "11.mis",
-    "12.mis"
+    "12.mis",
+    "14.mis"
    ]
   },
-  "Patio": {
-   "png": "Patio.png",
-   "family": "core_2",
-   "folder": "Core_2",
-   "source": "patio.dds",
-   "family_matched": true,
-   "size": [
-    512,
-    512
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS1_mod.mis",
-    "MISS9_mod.mis"
-   ]
-  },
-  "pceil05": {
-   "png": "pceil05.png",
-   "family": "CeilPain",
-   "folder": "CeilPain",
-   "source": "fam.crf::CeilPain/Pceil05.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS1_mod.mis"
-   ]
-  },
-  "Planks1": {
-   "png": "Planks1.png",
+  "planks1": {
+   "png": "planks1.png",
    "family": "core_2",
    "folder": "Core_2",
    "source": "fam.crf::Core_2/Planks1.PCX",
@@ -3299,26 +2066,8 @@
    ],
    "scale_px": 64,
    "used_by": [
-    "MISS1_mod.mis",
-    "MISS5_mod.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis",
-    "MISS9_mod.mis"
-   ]
-  },
-  "plant01": {
-   "png": "plant01.png",
-   "family": "rescor_2",
-   "folder": "rescor_2",
-   "source": "fam.crf::rescor_2/plant01.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    64
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "plant03": {
@@ -3333,56 +2082,23 @@
    ],
    "scale_px": 128,
    "used_by": [
-    "MISS5_mod.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis",
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
-  "plant04": {
-   "png": "plant04.png",
-   "family": "rescor_1",
-   "folder": "rescor_1",
-   "source": "fam.crf::rescor_1/plant04.PCX",
+  "plate": {
+   "png": "plate.png",
+   "family": "city",
+   "folder": "city",
+   "source": "plate.dds",
    "family_matched": true,
    "size": [
-    64,
-    64
+    256,
+    256
    ],
    "scale_px": 64,
    "used_by": [
-    "MISS1_mod.mis",
-    "MISS9_mod.mis"
-   ]
-  },
-  "plant06": {
-   "png": "plant06.png",
-   "family": "rescor_1",
-   "folder": "rescor_1",
-   "source": "fam.crf::rescor_1/plant06.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    64
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "plant07": {
-   "png": "plant07.png",
-   "family": "rescor_2",
-   "folder": "rescor_2",
-   "source": "fam.crf::rescor_2/plant07.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    64
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS9_mod.mis"
+    "14.mis"
    ]
   },
   "Robblock": {
@@ -3411,26 +2127,26 @@
     "11.mis",
     "12.mis",
     "13.mis",
-    "MISS9_mod.mis"
+    "14.mis"
    ]
   },
-  "Rockwal": {
-   "png": "Rockwal.png",
-   "family": "core_2",
-   "folder": "core_2",
-   "source": "fam.crf::core_2/Rockwal.PCX",
+  "Roctex": {
+   "png": "Roctex.png",
+   "family": "city",
+   "folder": "city",
+   "source": "fam.crf::city/Roctex.PCX",
    "family_matched": true,
    "size": [
-    128,
-    128
+    64,
+    64
    ],
-   "scale_px": 128,
+   "scale_px": 64,
    "used_by": [
-    "MISS9_mod.mis"
+    "14.mis"
    ]
   },
-  "Roof": {
-   "png": "Roof.png",
+  "roof": {
+   "png": "roof.png",
    "family": "city",
    "folder": "city",
    "source": "roof.dds",
@@ -3441,10 +2157,9 @@
    ],
    "scale_px": 128,
    "used_by": [
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis",
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "rooftile": {
@@ -3459,9 +2174,69 @@
    ],
    "scale_px": 128,
    "used_by": [
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
+    "MISS5_mod2_mini.mis"
+   ]
+  },
+  "RStuc2": {
+   "png": "RStuc2.png",
+   "family": "city",
+   "folder": "city",
+   "source": "fam.crf::city/RStuc2.PCX",
+   "family_matched": true,
+   "size": [
+    64,
+    64
+   ],
+   "scale_px": 64,
+   "used_by": [
+    "14.mis"
+   ]
+  },
+  "RStuc2st": {
+   "png": "RStuc2st.png",
+   "family": "city",
+   "folder": "city",
+   "source": "fam.crf::city/RStuc2st.PCX",
+   "family_matched": true,
+   "size": [
+    64,
+    64
+   ],
+   "scale_px": 64,
+   "used_by": [
+    "14.mis"
+   ]
+  },
+  "Rstuc3a": {
+   "png": "Rstuc3a.png",
+   "family": "city",
+   "folder": "city",
+   "source": "fam.crf::city/Rstuc3a.PCX",
+   "family_matched": true,
+   "size": [
+    64,
+    64
+   ],
+   "scale_px": 64,
+   "used_by": [
+    "14.mis"
+   ]
+  },
+  "rubermat": {
+   "png": "rubermat.png",
+   "family": "city",
+   "folder": "city",
+   "source": "fam.crf::city/rubermat.pcx",
+   "family_matched": true,
+   "size": [
+    128,
+    64
+   ],
+   "scale_px": 128,
+   "used_by": [
+    "14.mis"
    ]
   },
   "Rufgry": {
@@ -3489,37 +2264,8 @@
     "10.mis",
     "11.mis",
     "12.mis",
-    "13.mis"
-   ]
-  },
-  "rug01": {
-   "png": "rug01.png",
-   "family": "Vrescor1",
-   "folder": "Vrescor1",
-   "source": "fam.crf::Vrescor1/RUG01.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    256
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS1_mod.mis"
-   ]
-  },
-  "rug02": {
-   "png": "rug02.png",
-   "family": "Vrescor1",
-   "folder": "Vrescor1",
-   "source": "fam.crf::Vrescor1/RUG02.PCX",
-   "family_matched": true,
-   "size": [
-    256,
-    256
-   ],
-   "scale_px": 256,
-   "used_by": [
-    "MISS1_mod.mis"
+    "13.mis",
+    "14.mis"
    ]
   },
   "rug04": {
@@ -3534,183 +2280,12 @@
    ],
    "scale_px": 256,
    "used_by": [
-    "MISS5_mod.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis",
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
-  "rug10": {
-   "png": "rug10.png",
-   "family": "Vrescor1",
-   "folder": "Vrescor1",
-   "source": "fam.crf::Vrescor1/RUG10.PCX",
-   "family_matched": true,
-   "size": [
-    256,
-    256
-   ],
-   "scale_px": 256,
-   "used_by": [
-    "MISS1_mod.mis",
-    "MISS9_mod.mis"
-   ]
-  },
-  "RUG12": {
-   "png": "RUG12.png",
-   "family": "Vrescor1",
-   "folder": "Vrescor1",
-   "source": "fam.crf::Vrescor1/RUG12.PCX",
-   "family_matched": true,
-   "size": [
-    256,
-    128
-   ],
-   "scale_px": 256,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "RUG13": {
-   "png": "RUG13.png",
-   "family": "Vrescor1",
-   "folder": "Vrescor1",
-   "source": "fam.crf::Vrescor1/RUG13.PCX",
-   "family_matched": true,
-   "size": [
-    256,
-    128
-   ],
-   "scale_px": 256,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "rug14": {
-   "png": "rug14.png",
-   "family": "Vrescor1",
-   "folder": "Vrescor1",
-   "source": "fam.crf::Vrescor1/RUG14.PCX",
-   "family_matched": true,
-   "size": [
-    256,
-    128
-   ],
-   "scale_px": 256,
-   "used_by": [
-    "MISS1_mod.mis",
-    "MISS9_mod.mis"
-   ]
-  },
-  "rug15": {
-   "png": "rug15.png",
-   "family": "Vrescor1",
-   "folder": "Vrescor1",
-   "source": "fam.crf::Vrescor1/RUG15.PCX",
-   "family_matched": true,
-   "size": [
-    256,
-    256
-   ],
-   "scale_px": 256,
-   "used_by": [
-    "MISS1_mod.mis",
-    "MISS9_mod.mis"
-   ]
-  },
-  "RUG17": {
-   "png": "RUG17.png",
-   "family": "Vrescor1",
-   "folder": "Vrescor1",
-   "source": "fam.crf::Vrescor1/RUG17.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    256
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "RUG20": {
-   "png": "RUG20.png",
-   "family": "Vrescor1",
-   "folder": "Vrescor1",
-   "source": "fam.crf::Vrescor1/RUG20.PCX",
-   "family_matched": true,
-   "size": [
-    256,
-    256
-   ],
-   "scale_px": 256,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "RUG21RN": {
-   "png": "RUG21RN.png",
-   "family": "Vrescor1",
-   "folder": "Vrescor1",
-   "source": "fam.crf::Vrescor1/RUG21RN.PCX",
-   "family_matched": true,
-   "size": [
-    256,
-    128
-   ],
-   "scale_px": 256,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "rug26rn": {
-   "png": "rug26rn.png",
-   "family": "Vrescor1",
-   "folder": "Vrescor1",
-   "source": "fam.crf::Vrescor1/RUG26RN.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS1_mod.mis",
-    "MISS9_mod.mis"
-   ]
-  },
-  "RUG28RN": {
-   "png": "RUG28RN.png",
-   "family": "Vrescor1",
-   "folder": "Vrescor1",
-   "source": "fam.crf::Vrescor1/RUG28RN.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "rug29rn": {
-   "png": "rug29rn.png",
-   "family": "Vrescor1",
-   "folder": "Vrescor1",
-   "source": "fam.crf::Vrescor1/RUG29RN.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS1_mod.mis"
-   ]
-  },
-  "Rustgi4a": {
-   "png": "Rustgi4a.png",
+  "rustgi4a": {
+   "png": "rustgi4a.png",
    "family": "city",
    "folder": "city",
    "source": "rustgi4a.dds",
@@ -3721,11 +2296,11 @@
    ],
    "scale_px": 128,
    "used_by": [
-    "MISS1_mod.mis"
+    "14.mis"
    ]
   },
-  "Rustgir3": {
-   "png": "Rustgir3.png",
+  "rustgir3": {
+   "png": "rustgir3.png",
    "family": "city",
    "folder": "city",
    "source": "rustgir3.dds",
@@ -3736,24 +2311,39 @@
    ],
    "scale_px": 64,
    "used_by": [
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
-  "Sand": {
-   "png": "Sand.png",
-   "family": "core_2",
-   "folder": "Core_2",
-   "source": "fam.crf::Core_2/Sand.PCX",
+  "rustgir5": {
+   "png": "rustgir5.png",
+   "family": "city",
+   "folder": "city",
+   "source": "rustgir5.dds",
    "family_matched": true,
    "size": [
-    64,
-    64
+    512,
+    512
+   ],
+   "scale_px": 128,
+   "used_by": [
+    "14.mis"
+   ]
+  },
+  "rustgir6": {
+   "png": "rustgir6.png",
+   "family": "city",
+   "folder": "city",
+   "source": "rustgir6.dds",
+   "family_matched": true,
+   "size": [
+    512,
+    512
    ],
    "scale_px": 64,
    "used_by": [
-    "MISS9_mod.mis"
+    "14.mis"
    ]
   },
   "Sandy": {
@@ -3782,7 +2372,7 @@
     "11.mis",
     "12.mis",
     "13.mis",
-    "MISS9_mod.mis"
+    "14.mis"
    ]
   },
   "SKULL": {
@@ -3800,112 +2390,8 @@
     "09.mis",
     "10.mis",
     "11.mis",
-    "12.mis"
-   ]
-  },
-  "solwin01s": {
-   "png": "solwin01s.png",
-   "family": "vicwood",
-   "folder": "vicwood",
-   "source": "fam.crf::vicwood/Solwin01s.PCX",
-   "family_matched": true,
-   "size": [
-    256,
-    256
-   ],
-   "scale_px": 256,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "solwin02s": {
-   "png": "solwin02s.png",
-   "family": "vicwood",
-   "folder": "vicwood",
-   "source": "fam.crf::vicwood/Solwin02s.PCX",
-   "family_matched": true,
-   "size": [
-    256,
-    256
-   ],
-   "scale_px": 256,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "solwn01": {
-   "png": "solwn01.png",
-   "family": "vicwood",
-   "folder": "vicwood",
-   "source": "fam.crf::vicwood/Solwn01.PCX",
-   "family_matched": true,
-   "size": [
-    256,
-    256
-   ],
-   "scale_px": 256,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "solwn01l": {
-   "png": "solwn01l.png",
-   "family": "vicwood",
-   "folder": "vicwood",
-   "source": "fam.crf::vicwood/Solwn01L.PCX",
-   "family_matched": true,
-   "size": [
-    256,
-    256
-   ],
-   "scale_px": 256,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "solwn02": {
-   "png": "solwn02.png",
-   "family": "vicwood",
-   "folder": "vicwood",
-   "source": "fam.crf::vicwood/Solwn02.PCX",
-   "family_matched": true,
-   "size": [
-    256,
-    256
-   ],
-   "scale_px": 256,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "solwn02l": {
-   "png": "solwn02l.png",
-   "family": "vicwood",
-   "folder": "vicwood",
-   "source": "fam.crf::vicwood/Solwn02L.PCX",
-   "family_matched": true,
-   "size": [
-    256,
-    256
-   ],
-   "scale_px": 256,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "stain04": {
-   "png": "stain04.png",
-   "family": "rescor_2",
-   "folder": "rescor_2",
-   "source": "fam.crf::rescor_2/stain04.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    256
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
+    "12.mis",
+    "14.mis"
    ]
   },
   "Stnwal3": {
@@ -3933,23 +2419,8 @@
     "10.mis",
     "11.mis",
     "12.mis",
-    "13.mis"
-   ]
-  },
-  "Stone2": {
-   "png": "Stone2.png",
-   "family": "core_2",
-   "folder": "Core_2",
-   "source": "fam.crf::Core_2/Stone2.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    64
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS1_mod.mis",
-    "MISS9_mod.mis"
+    "13.mis",
+    "14.mis"
    ]
   },
   "Stone4": {
@@ -3978,7 +2449,7 @@
     "11.mis",
     "12.mis",
     "13.mis",
-    "MISS9_mod.mis"
+    "14.mis"
    ]
   },
   "Stuc2": {
@@ -4006,11 +2477,12 @@
     "10.mis",
     "11.mis",
     "12.mis",
-    "13.mis"
+    "13.mis",
+    "14.mis"
    ]
   },
-  "Stucco": {
-   "png": "Stucco.png",
+  "stucco": {
+   "png": "stucco.png",
    "family": "core_2",
    "folder": "Core_2",
    "source": "fam.crf::Core_2/Stucco.PCX",
@@ -4021,30 +2493,12 @@
    ],
    "scale_px": 128,
    "used_by": [
-    "MISS1_mod.mis",
-    "MISS5_mod.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis",
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
-  "Tanbrck": {
-   "png": "Tanbrck.png",
-   "family": "core_2",
-   "folder": "Core_2",
-   "source": "tanbrck.dds",
-   "family_matched": true,
-   "size": [
-    512,
-    512
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "tile": {
-   "png": "tile.png",
+  "Tile": {
+   "png": "Tile.png",
    "family": "core_1",
    "folder": "Core_1",
    "source": "fam.crf::Core_1/Tile.PCX",
@@ -4069,8 +2523,7 @@
     "11.mis",
     "12.mis",
     "13.mis",
-    "MISS1_mod.mis",
-    "MISS9_mod.mis"
+    "14.mis"
    ]
   },
   "Trans": {
@@ -4098,7 +2551,8 @@
     "10.mis",
     "11.mis",
     "12.mis",
-    "13.mis"
+    "13.mis",
+    "14.mis"
    ]
   },
   "Tst2": {
@@ -4126,580 +2580,8 @@
     "10.mis",
     "11.mis",
     "12.mis",
-    "13.mis"
-   ]
-  },
-  "VDOORFR2": {
-   "png": "VDOORFR2.png",
-   "family": "VicM01",
-   "folder": "VicM01",
-   "source": "fam.crf::VicM01/VDOORFR2.PCX",
-   "family_matched": true,
-   "size": [
-    32,
-    32
-   ],
-   "scale_px": 32,
-   "used_by": [
-    "MISS1_mod.mis"
-   ]
-  },
-  "VDoorFr3": {
-   "png": "VDoorFr3.png",
-   "family": "vicwood",
-   "folder": "vicwood",
-   "source": "fam.crf::vicwood/VDoorFr3.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    32
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS1_mod.mis",
-    "MISS9_mod.mis"
-   ]
-  },
-  "VIC01M": {
-   "png": "VIC01M.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/VIC01M.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    64
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "VIC02M": {
-   "png": "VIC02M.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/VIC02M.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    64
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "VIC07M": {
-   "png": "VIC07M.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/VIC07M.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    64
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "VIC08M": {
-   "png": "VIC08M.png",
-   "family": "VicM01",
-   "folder": "VicM01",
-   "source": "fam.crf::VicM01/VIC08M.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    64
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS1_mod.mis"
-   ]
-  },
-  "VIC10": {
-   "png": "VIC10.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/VIC10.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    256
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "VIC11M": {
-   "png": "VIC11M.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/VIC11M.PCX",
-   "family_matched": true,
-   "size": [
-    32,
-    32
-   ],
-   "scale_px": 32,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "VIC13": {
-   "png": "VIC13.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/VIC13.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    256
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "vic15m": {
-   "png": "vic15m.png",
-   "family": "VicM01",
-   "folder": "VicM01",
-   "source": "fam.crf::VicM01/VIC15M.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    32
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "VIC17coa": {
-   "png": "VIC17coa.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/VIC17coa.PCX",
-   "family_matched": true,
-   "size": [
-    32,
-    256
-   ],
-   "scale_px": 32,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "VIC19M": {
-   "png": "VIC19M.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/VIC19M.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "VIC20": {
-   "png": "VIC20.png",
-   "family": "VicM01",
-   "folder": "VicM01",
-   "source": "fam.crf::VicM01/VIC20.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    256
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS1_mod.mis"
-   ]
-  },
-  "VIC21": {
-   "png": "VIC21.png",
-   "family": "VicM01",
-   "folder": "VicM01",
-   "source": "fam.crf::VicM01/VIC21.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    256
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS1_mod.mis"
-   ]
-  },
-  "VIC23M": {
-   "png": "VIC23M.png",
-   "family": "VicM01",
-   "folder": "VicM01",
-   "source": "fam.crf::VicM01/VIC23M.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    64
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS1_mod.mis"
-   ]
-  },
-  "VIC25M": {
-   "png": "VIC25M.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/VIC25M.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    64
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "VIC26D": {
-   "png": "VIC26D.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/VIC26D.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    64
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "vic31coa": {
-   "png": "vic31coa.png",
-   "family": "VICM012",
-   "folder": "VICM012",
-   "source": "fam.crf::VICM012/VIC31COA.PCX",
-   "family_matched": true,
-   "size": [
-    16,
-    256
-   ],
-   "scale_px": 16,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "VIC32M": {
-   "png": "VIC32M.png",
-   "family": "VicM01",
-   "folder": "VicM01",
-   "source": "fam.crf::VicM01/VIC32M.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    32
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS1_mod.mis"
-   ]
-  },
-  "VIC35": {
-   "png": "VIC35.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/VIC35.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    256
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "VIC36": {
-   "png": "VIC36.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/VIC36.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    256
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "VIC37": {
-   "png": "VIC37.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/VIC37.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    256
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "VIC38": {
-   "png": "VIC38.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/VIC38.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    256
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "VIC39": {
-   "png": "VIC39.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/VIC39.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    256
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "VIC40": {
-   "png": "VIC40.png",
-   "family": "VicM01",
-   "folder": "VicM01",
-   "source": "fam.crf::VicM01/VIC40.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    256
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS1_mod.mis"
-   ]
-  },
-  "VIC41": {
-   "png": "VIC41.png",
-   "family": "VicM01",
-   "folder": "VicM01",
-   "source": "fam.crf::VicM01/VIC41.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    256
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS1_mod.mis"
-   ]
-  },
-  "VIC42": {
-   "png": "VIC42.png",
-   "family": "VicM01",
-   "folder": "VicM01",
-   "source": "fam.crf::VicM01/VIC42.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    256
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS1_mod.mis"
-   ]
-  },
-  "VIC43": {
-   "png": "VIC43.png",
-   "family": "VicM01",
-   "folder": "VicM01",
-   "source": "fam.crf::VicM01/VIC43.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    256
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS1_mod.mis"
-   ]
-  },
-  "VIC61CO": {
-   "png": "VIC61CO.png",
-   "family": "VicM01",
-   "folder": "vicm01",
-   "source": "VIC61CO.dds",
-   "family_matched": true,
-   "size": [
-    256,
-    512
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS1_mod.mis",
-    "MISS9_mod.mis"
-   ]
-  },
-  "VIC67TOA": {
-   "png": "VIC67TOA.png",
-   "family": "VicM01",
-   "folder": "VicM01",
-   "source": "fam.crf::VicM01/VIC67TOA.PCX",
-   "family_matched": true,
-   "size": [
-    32,
-    32
-   ],
-   "scale_px": 32,
-   "used_by": [
-    "MISS1_mod.mis"
-   ]
-  },
-  "VIC68TOP": {
-   "png": "VIC68TOP.png",
-   "family": "VicM01",
-   "folder": "VicM01",
-   "source": "fam.crf::VicM01/VIC68TOP.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    32
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS1_mod.mis",
-    "MISS9_mod.mis"
-   ]
-  },
-  "VIC70CO": {
-   "png": "VIC70CO.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/VIC70CO.PCX",
-   "family_matched": true,
-   "size": [
-    32,
-    128
-   ],
-   "scale_px": 32,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "Vicn90": {
-   "png": "Vicn90.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/Vicn90.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    128
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "Vicn91": {
-   "png": "Vicn91.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/Vicn91.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    64
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "vicn92": {
-   "png": "vicn92.png",
-   "family": "CivicBui",
-   "folder": "CivicBui",
-   "source": "fam.crf::CivicBui/Vicn92.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    64
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "wall02a": {
-   "png": "wall02a.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/wall02a.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    64
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "wall03": {
-   "png": "wall03.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/wall03.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "wall03a": {
-   "png": "wall03a.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/wall03a.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    64
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS9_mod.mis"
+    "13.mis",
+    "14.mis"
    ]
   },
   "wall03bo": {
@@ -4714,253 +2596,8 @@
    ],
    "scale_px": 64,
    "used_by": [
-    "MISS5_mod.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis",
-    "MISS9_mod.mis"
-   ]
-  },
-  "WALL10": {
-   "png": "WALL10.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/WALL10.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "WALL10A": {
-   "png": "WALL10A.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/WALL10A.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    64
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "WALL11A": {
-   "png": "WALL11A.png",
-   "family": "VicM01",
-   "folder": "VicM01",
-   "source": "fam.crf::VicM01/WALL11A.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    64
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS1_mod.mis"
-   ]
-  },
-  "wall12": {
-   "png": "wall12.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/wall12.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "wall12a": {
-   "png": "wall12a.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/wall12a.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    64
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "WALL13": {
-   "png": "WALL13.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/WALL13.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "WALL13A": {
-   "png": "WALL13A.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/WALL13A.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    64
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "WALL14": {
-   "png": "WALL14.png",
-   "family": "VicM01",
-   "folder": "VicM01",
-   "source": "fam.crf::VicM01/WALL14.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS1_mod.mis",
-    "MISS9_mod.mis"
-   ]
-  },
-  "WALL14A": {
-   "png": "WALL14A.png",
-   "family": "VicM01",
-   "folder": "VicM01",
-   "source": "fam.crf::VicM01/WALL14A.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    64
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS1_mod.mis"
-   ]
-  },
-  "WALL16": {
-   "png": "WALL16.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/WALL16.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    256
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "WALL16A": {
-   "png": "WALL16A.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/WALL16A.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    128
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "WALL17a": {
-   "png": "WALL17a.png",
-   "family": "VicM01",
-   "folder": "VicM01",
-   "source": "fam.crf::VicM01/WALL17a.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    128
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS1_mod.mis"
-   ]
-  },
-  "WALL19": {
-   "png": "WALL19.png",
-   "family": "VicM01",
-   "folder": "VicM01",
-   "source": "fam.crf::VicM01/WALL19.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS1_mod.mis",
-    "MISS9_mod.mis"
-   ]
-  },
-  "WALL19A": {
-   "png": "WALL19A.png",
-   "family": "VicM01",
-   "folder": "VicM01",
-   "source": "fam.crf::VicM01/WALL19A.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    64
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS1_mod.mis",
-    "MISS9_mod.mis"
-   ]
-  },
-  "WALL20": {
-   "png": "WALL20.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/WALL20.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "WALL20A": {
-   "png": "WALL20A.png",
-   "family": "VicM09",
-   "folder": "VicM09",
-   "source": "fam.crf::VicM09/WALL20A.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    64
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "Wallcat1": {
@@ -4988,37 +2625,8 @@
     "10.mis",
     "11.mis",
     "12.mis",
-    "13.mis"
-   ]
-  },
-  "wd1128": {
-   "png": "wd1128.png",
-   "family": "Core_3",
-   "folder": "Core_3",
-   "source": "fam.crf::Core_3/wd1128.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "Wdpanel": {
-   "png": "Wdpanel.png",
-   "family": "core_2",
-   "folder": "Core_2",
-   "source": "fam.crf::Core_2/Wdpanel.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    64
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS9_mod.mis"
+    "13.mis",
+    "14.mis"
    ]
   },
   "wdplain": {
@@ -5033,57 +2641,8 @@
    ],
    "scale_px": 64,
    "used_by": [
-    "MISS5_mod.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis",
-    "MISS9_mod.mis"
-   ]
-  },
-  "Wdplanko": {
-   "png": "Wdplanko.png",
-   "family": "core_2",
-   "folder": "Core_2",
-   "source": "wdplanko.dds",
-   "family_matched": true,
-   "size": [
-    512,
-    512
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS1_mod.mis",
-    "MISS9_mod.mis"
-   ]
-  },
-  "Wdplanks": {
-   "png": "Wdplanks.png",
-   "family": "core_2",
-   "folder": "Core_2",
-   "source": "wdplanks.dds",
-   "family_matched": true,
-   "size": [
-    512,
-    512
-   ],
-   "scale_px": 256,
-   "used_by": [
-    "MISS1_mod.mis",
-    "MISS9_mod.mis"
-   ]
-  },
-  "Wdplkbnd": {
-   "png": "Wdplkbnd.png",
-   "family": "core_2",
-   "folder": "Core_2",
-   "source": "wdplkbnd.dds",
-   "family_matched": true,
-   "size": [
-    1024,
-    1024
-   ],
-   "scale_px": 256,
-   "used_by": [
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "wdplnk": {
@@ -5098,14 +2657,12 @@
    ],
    "scale_px": 128,
    "used_by": [
-    "MISS5_mod.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis",
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
-  "Wdplnk2": {
-   "png": "Wdplnk2.png",
+  "wdplnk2": {
+   "png": "wdplnk2.png",
    "family": "core_2",
    "folder": "Core_2",
    "source": "Wdplnk2.dds",
@@ -5116,11 +2673,8 @@
    ],
    "scale_px": 128,
    "used_by": [
-    "MISS1_mod.mis",
-    "MISS5_mod.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis",
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "Wdplnk2g": {
@@ -5149,22 +2703,7 @@
     "11.mis",
     "12.mis",
     "13.mis",
-    "MISS9_mod.mis"
-   ]
-  },
-  "Wdplnkg": {
-   "png": "Wdplnkg.png",
-   "family": "core_2",
-   "folder": "Core_2",
-   "source": "wdplnkg.dds",
-   "family_matched": true,
-   "size": [
-    512,
-    512
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
+    "14.mis"
    ]
   },
   "wdtrim": {
@@ -5179,9 +2718,8 @@
    ],
    "scale_px": 64,
    "used_by": [
-    "MISS5_mod.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "wframe": {
@@ -5196,40 +2734,8 @@
    ],
    "scale_px": 64,
    "used_by": [
-    "MISS5_mod.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis",
-    "MISS9_mod.mis"
-   ]
-  },
-  "wgrain01": {
-   "png": "wgrain01.png",
-   "family": "rescor_1",
-   "folder": "rescor_1",
-   "source": "fam.crf::rescor_1/wgrain01.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    64
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "wgrain02": {
-   "png": "wgrain02.png",
-   "family": "rescor_1",
-   "folder": "rescor_1",
-   "source": "fam.crf::rescor_1/wgrain02.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    64
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "win1": {
@@ -5244,13 +2750,43 @@
    ],
    "scale_px": 128,
    "used_by": [
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
-  "win1l": {
-   "png": "win1l.png",
+  "win11": {
+   "png": "win11.png",
+   "family": "city",
+   "folder": "city",
+   "source": "win11.dds",
+   "family_matched": true,
+   "size": [
+    512,
+    512
+   ],
+   "scale_px": 128,
+   "used_by": [
+    "14.mis"
+   ]
+  },
+  "win11L": {
+   "png": "win11L.png",
+   "family": "city",
+   "folder": "city",
+   "source": "win11L.dds",
+   "family_matched": true,
+   "size": [
+    512,
+    512
+   ],
+   "scale_px": 128,
+   "used_by": [
+    "14.mis"
+   ]
+  },
+  "win1L": {
+   "png": "win1L.png",
    "family": "city",
    "folder": "city",
    "source": "win1L.dds",
@@ -5261,9 +2797,9 @@
    ],
    "scale_px": 128,
    "used_by": [
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "win31": {
@@ -5278,9 +2814,39 @@
    ],
    "scale_px": 64,
    "used_by": [
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
+    "MISS5_mod2_mini.mis"
+   ]
+  },
+  "win31L": {
+   "png": "win31L.png",
+   "family": "city",
+   "folder": "city",
+   "source": "win31L.dds",
+   "family_matched": true,
+   "size": [
+    256,
+    256
+   ],
+   "scale_px": 64,
+   "used_by": [
+    "14.mis"
+   ]
+  },
+  "Win32": {
+   "png": "Win32.png",
+   "family": "city",
+   "folder": "city",
+   "source": "fam.crf::city/Win32.PCX",
+   "family_matched": true,
+   "size": [
+    32,
+    64
+   ],
+   "scale_px": 32,
+   "used_by": [
+    "14.mis"
    ]
   },
   "win322": {
@@ -5295,13 +2861,13 @@
    ],
    "scale_px": 32,
    "used_by": [
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
-  "win322l": {
-   "png": "win322l.png",
+  "WIN322L": {
+   "png": "WIN322L.png",
    "family": "city",
    "folder": "city",
    "source": "fam.crf::city/WIN322L.PCX",
@@ -5312,13 +2878,13 @@
    ],
    "scale_px": 32,
    "used_by": [
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
-  "WIN323": {
-   "png": "WIN323.png",
+  "win323": {
+   "png": "win323.png",
    "family": "city",
    "folder": "city",
    "source": "win323.dds",
@@ -5329,13 +2895,28 @@
    ],
    "scale_px": 32,
    "used_by": [
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
-  "Win324": {
-   "png": "Win324.png",
+  "win323l": {
+   "png": "win323l.png",
+   "family": "city",
+   "folder": "city",
+   "source": "win323l.dds",
+   "family_matched": true,
+   "size": [
+    128,
+    256
+   ],
+   "scale_px": 32,
+   "used_by": [
+    "14.mis"
+   ]
+  },
+  "win324": {
+   "png": "win324.png",
    "family": "city",
    "folder": "city",
    "source": "win324.dds",
@@ -5346,14 +2927,13 @@
    ],
    "scale_px": 32,
    "used_by": [
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis",
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
-  "Win324L": {
-   "png": "Win324L.png",
+  "win324L": {
+   "png": "win324L.png",
    "family": "city",
    "folder": "city",
    "source": "win324L.dds",
@@ -5364,14 +2944,13 @@
    ],
    "scale_px": 32,
    "used_by": [
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis",
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
-  "Win325": {
-   "png": "Win325.png",
+  "win325": {
+   "png": "win325.png",
    "family": "city",
    "folder": "city",
    "source": "win325.dds",
@@ -5382,13 +2961,13 @@
    ],
    "scale_px": 32,
    "used_by": [
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
-  "Win325L": {
-   "png": "Win325L.png",
+  "win325l": {
+   "png": "win325l.png",
    "family": "city",
    "folder": "city",
    "source": "win325l.dds",
@@ -5399,13 +2978,28 @@
    ],
    "scale_px": 32,
    "used_by": [
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
-  "Win326l": {
-   "png": "Win326l.png",
+  "win325s": {
+   "png": "win325s.png",
+   "family": "city",
+   "folder": "city",
+   "source": "win325s.dds",
+   "family_matched": true,
+   "size": [
+    128,
+    256
+   ],
+   "scale_px": 32,
+   "used_by": [
+    "14.mis"
+   ]
+  },
+  "win326l": {
+   "png": "win326l.png",
    "family": "city",
    "folder": "city",
    "source": "win326l.dds",
@@ -5416,9 +3010,9 @@
    ],
    "scale_px": 128,
    "used_by": [
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "Win32L": {
@@ -5433,9 +3027,9 @@
    ],
    "scale_px": 32,
    "used_by": [
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "win5": {
@@ -5450,13 +3044,73 @@
    ],
    "scale_px": 64,
    "used_by": [
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
-  "win5l": {
-   "png": "win5l.png",
+  "win51": {
+   "png": "win51.png",
+   "family": "city",
+   "folder": "city",
+   "source": "win51.dds",
+   "family_matched": true,
+   "size": [
+    256,
+    256
+   ],
+   "scale_px": 64,
+   "used_by": [
+    "14.mis"
+   ]
+  },
+  "win51L": {
+   "png": "win51L.png",
+   "family": "city",
+   "folder": "city",
+   "source": "win51L.dds",
+   "family_matched": true,
+   "size": [
+    256,
+    256
+   ],
+   "scale_px": 64,
+   "used_by": [
+    "14.mis"
+   ]
+  },
+  "Win52": {
+   "png": "Win52.png",
+   "family": "city",
+   "folder": "city",
+   "source": "fam.crf::city/Win52.PCX",
+   "family_matched": true,
+   "size": [
+    64,
+    64
+   ],
+   "scale_px": 64,
+   "used_by": [
+    "14.mis"
+   ]
+  },
+  "Win52L": {
+   "png": "Win52L.png",
+   "family": "city",
+   "folder": "city",
+   "source": "fam.crf::city/Win52L.PCX",
+   "family_matched": true,
+   "size": [
+    64,
+    64
+   ],
+   "scale_px": 64,
+   "used_by": [
+    "14.mis"
+   ]
+  },
+  "win5L": {
+   "png": "win5L.png",
    "family": "city",
    "folder": "city",
    "source": "win5L.dds",
@@ -5467,13 +3121,13 @@
    ],
    "scale_px": 64,
    "used_by": [
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
-  "win6": {
-   "png": "win6.png",
+  "Win6": {
+   "png": "Win6.png",
    "family": "city",
    "folder": "city",
    "source": "fam.crf::city/Win6.PCX",
@@ -5484,9 +3138,9 @@
    ],
    "scale_px": 64,
    "used_by": [
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "WING": {
@@ -5504,7 +3158,8 @@
     "09.mis",
     "10.mis",
     "11.mis",
-    "12.mis"
+    "12.mis",
+    "14.mis"
    ]
   },
   "winwd264": {
@@ -5519,14 +3174,13 @@
    ],
    "scale_px": 64,
    "used_by": [
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis",
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
-  "Winwd64": {
-   "png": "Winwd64.png",
+  "winwd64": {
+   "png": "winwd64.png",
    "family": "city",
    "folder": "city",
    "source": "winwd64.dds",
@@ -5537,10 +3191,24 @@
    ],
    "scale_px": 64,
    "used_by": [
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis",
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
+   ]
+  },
+  "winwd64s": {
+   "png": "winwd64s.png",
+   "family": "city",
+   "folder": "city",
+   "source": "winwd64s.dds",
+   "family_matched": true,
+   "size": [
+    256,
+    256
+   ],
+   "scale_px": 64,
+   "used_by": [
+    "14.mis"
    ]
   },
   "winwl264": {
@@ -5555,10 +3223,9 @@
    ],
    "scale_px": 64,
    "used_by": [
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis",
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "winwl64": {
@@ -5573,223 +3240,9 @@
    ],
    "scale_px": 64,
    "used_by": [
-    "MISS5_mod.mis",
+    "14.mis",
     "MISS5_mod2.mis",
-    "MISS5_mod2_no_start_box.mis",
-    "MISS9_mod.mis"
-   ]
-  },
-  "Wood": {
-   "png": "Wood.png",
-   "family": "core_2",
-   "folder": "Core_2",
-   "source": "fam.crf::Core_2/Wood.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    128
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS1_mod.mis",
-    "MISS9_mod.mis"
-   ]
-  },
-  "Wood01": {
-   "png": "Wood01.png",
-   "family": "WdFloor",
-   "folder": "WdFloor",
-   "source": "fam.crf::WdFloor/Wood01.PCX",
-   "family_matched": true,
-   "size": [
-    256,
-    256
-   ],
-   "scale_px": 256,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "Wood06a": {
-   "png": "Wood06a.png",
-   "family": "WdFloor",
-   "folder": "WdFloor",
-   "source": "fam.crf::WdFloor/Wood06a.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "Woodbeam": {
-   "png": "Woodbeam.png",
-   "family": "core_2",
-   "folder": "Core_2",
-   "source": "woodbeam.dds",
-   "family_matched": true,
-   "size": [
-    512,
-    256
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "Woodblt": {
-   "png": "Woodblt.png",
-   "family": "core_2",
-   "folder": "Core_2",
-   "source": "fam.crf::Core_2/Woodblt.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    64
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "woodpnl": {
-   "png": "woodpnl.png",
-   "family": "VICM07",
-   "folder": "VICM07",
-   "source": "fam.crf::VICM07/woodpnl.PCX",
-   "family_matched": true,
-   "size": [
-    64,
-    64
-   ],
-   "scale_px": 64,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "Woods01": {
-   "png": "Woods01.png",
-   "family": "WdFloor",
-   "folder": "WdFloor",
-   "source": "fam.crf::WdFloor/Woods01.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "Woods02": {
-   "png": "Woods02.png",
-   "family": "WdFloor",
-   "folder": "WdFloor",
-   "source": "fam.crf::WdFloor/Woods02.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "Woods03": {
-   "png": "Woods03.png",
-   "family": "WdFloor",
-   "folder": "WdFloor",
-   "source": "fam.crf::WdFloor/Woods03.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "Woods05": {
-   "png": "Woods05.png",
-   "family": "WdFloor",
-   "folder": "WdFloor",
-   "source": "fam.crf::WdFloor/Woods05.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "woods06": {
-   "png": "woods06.png",
-   "family": "WdFloor",
-   "folder": "WdFloor",
-   "source": "fam.crf::WdFloor/woods06.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS9_mod.mis"
-   ]
-  },
-  "woods07": {
-   "png": "woods07.png",
-   "family": "WdFloor",
-   "folder": "WdFloor",
-   "source": "fam.crf::WdFloor/Woods07.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS1_mod.mis",
-    "MISS9_mod.mis"
-   ]
-  },
-  "woods08": {
-   "png": "woods08.png",
-   "family": "WdFloor",
-   "folder": "wdfloor",
-   "source": "woods08.dds",
-   "family_matched": true,
-   "size": [
-    512,
-    512
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS1_mod.mis"
-   ]
-  },
-  "woods09": {
-   "png": "woods09.png",
-   "family": "WdFloor",
-   "folder": "WdFloor",
-   "source": "fam.crf::WdFloor/Woods09.PCX",
-   "family_matched": true,
-   "size": [
-    128,
-    128
-   ],
-   "scale_px": 128,
-   "used_by": [
-    "MISS1_mod.mis",
-    "MISS9_mod.mis"
+    "MISS5_mod2_mini.mis"
    ]
   },
   "XCIRC1": {
@@ -5807,7 +3260,8 @@
     "09.mis",
     "10.mis",
     "11.mis",
-    "12.mis"
+    "12.mis",
+    "14.mis"
    ]
   },
   "XCIRC2": {
@@ -5825,7 +3279,8 @@
     "09.mis",
     "10.mis",
     "11.mis",
-    "12.mis"
+    "12.mis",
+    "14.mis"
    ]
   },
   "XCIRC3": {
@@ -5843,7 +3298,8 @@
     "09.mis",
     "10.mis",
     "11.mis",
-    "12.mis"
+    "12.mis",
+    "14.mis"
    ]
   },
   "XCIRC4": {
@@ -5861,7 +3317,8 @@
     "09.mis",
     "10.mis",
     "11.mis",
-    "12.mis"
+    "12.mis",
+    "14.mis"
    ]
   },
   "XLRG": {
@@ -5879,7 +3336,8 @@
     "09.mis",
     "10.mis",
     "11.mis",
-    "12.mis"
+    "12.mis",
+    "14.mis"
    ]
   },
   "XSML": {
@@ -5897,7 +3355,8 @@
     "09.mis",
     "10.mis",
     "11.mis",
-    "12.mis"
+    "12.mis",
+    "14.mis"
    ]
   }
  }

@@ -21,9 +21,12 @@ SCALE   = 30.48
 #   0 fill solid  1 fill air  2 fill water  3 flood  4 evaporate
 #   5 solid->water  6 solid->air  7 air->solid  8 water->solid  9 blockable
 # 6 and 7 used to be missing here, so those brushes were dropped at export and did nothing at all.
-# 9 (blockable) is deliberately excluded: its media_op row only changes the PERSIST flags
-# (SOLID->SOLID, AIR->AIR_PERSIST, WATER->WATER_PERSIST), so it makes no difference to shape.
-KEEP_OPS = (0,1,2,3,4,5,6,7,8)
+# 9 (blockable) changes no MEDIA - its row resolves back to the base medium - but it is exported so
+# the builder can turn it into invisible COLLISION. In Dark it is a cell-splitting marker: it flags
+# the cells CELL_CAN_BLOCK_VISION (ged_csg.cpp:603) and DromEd auto-generates one per door at
+# portalize time (doorblok.cpp) so a door object can block the portal. Nothing solid comes from the
+# brush itself there.
+KEEP_OPS = (0,1,2,3,4,5,6,7,8,9)
 
 def Rz(a): c,s=math.cos(a),math.sin(a); return np.array([[c,-s,0],[s,c,0],[0,0,1]])
 def Ry(a): c,s=math.cos(a),math.sin(a); return np.array([[c,0,s],[0,1,0],[-s,0,c]])
@@ -407,7 +410,7 @@ def extract(path):
     out=[]; p=0
     while p+76<=N:
         op=d[p+10]; nf=d[p+67]
-        terrain = (op<=8) and (4<=nf<=64)         # terrain fill op + a plausible face count
+        terrain = (op<=9) and (4<=nf<=64)         # terrain fill op (0..9) + a plausible face count
         if not terrain:
             p+=76; continue                        # non-terrain brush -> skip, fixed 76 bytes
         if p+76+nf*10>N: break                     # truncated / misaligned safety
@@ -474,7 +477,11 @@ def convert(inp, outp):
                 faces.append((idx[a2],idx[b2],idx[c2])); faces.append((idx[a2],idx[c2],idx[d2]))
         return faces
     Tw=orient(Vw,boxtris())
-    world=dict(id=0,time=0,op=0,shape="box",verts=[[round(x,3) for x in v] for v in Vw],tris=[list(t) for t in Tw],faces=[])
+    # time=-1 and an explicit `world` flag. A REAL brush can legitimately have time 0 (16.mis id29
+    # does), and the builder picks the world box as the first brush by time - so sharing the slot let
+    # a mission brush displace it, which only stable sorting was hiding.
+    world=dict(id=0,time=-1,op=0,shape="box",world=True,
+               verts=[[round(x,3) for x in v] for v in Vw],tris=[list(t) for t in Tw],faces=[])
     brushes=[world]+brushes
     json.dump(dict(units="cm",note="world-space verts baked with Dark rotation Rz(H)Ry(P)Rx(B), Y-negated to UE",
                    # Water look for THIS mission. `in` is the surface seen from the air side, `out`

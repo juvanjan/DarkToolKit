@@ -791,3 +791,33 @@ carries its own.
 Water tile: `WATER_TILE_CM` = 243.84 (8 ft), matching the waterhw pack's `terrain_scale 128` at Dark
 scale 16 (128 * 2^(16-20) = 8 ft). Water has no brush-face record, so there is no per-face scale to
 read -- unlike terrain, this one is a constant.
+
+
+## blockable (op 9): no geometry, no media change -- collision only
+
+What it is in Dark: NOT a solid. Its media_op row maps AIR->AIR_PERSIST and WATER->WATER_PERSIST,
+and `ConvertPersistantCells(CELL_CAN_BLOCK_VISION)` (ged_csg.cpp:603) then resolves those straight
+back to the base medium (`ConvertFindFinalMedium` just subtracts the offset) and flags the cells
+CELL_CAN_BLOCK_VISION. So the final medium is unchanged; the brush exists to SPLIT CELLS.
+
+Its real job is doors. `DrBlkGenerateBrushes` (editor/doorblok.cpp) walks every RotDoor/TransDoor
+object at portalize time, synthesises a blockable brush at the door's closed position, and
+`DrBlkDestroyBrushes` deletes them afterwards. The blocking comes from the door OBJECT; the brush
+just gives it a portal to block.
+
+We export it (KEEP_OPS includes 9, and the terrain-op guard is op<=9) but it must never reach the
+SOLID mesh -- unioning it into `result` would make it a visible wall. It goes into its own BLOCK mesh,
+baked as <ASSET>_Blockers with collision on and the component hidden. A hidden StaticMeshComponent
+still collides, so it blocks without drawing. MEDIA_T[9] is the identity, so medium_at is correctly
+unaffected by it.
+
+### Trap found here: a real brush can have time 0
+
+mis_to_geo used to give the synthesised world box time=0, and the builder picked the world as the
+first brush after sorting by time. But DromEd brush times start at 0, and 16.mis has TWO brushes at
+time 0 (id27, id29) -- they tied with the world box. Only Python's stable sort kept the world box
+first; any reordering would have made a 16x20x16ft brush "the world" and turned the real world box
+into an ordinary solid fill, filling the level in.
+
+The world box now has time=-1 AND an explicit `world: true` flag, and the builder selects it by that
+flag (falling back to B[0] for older geo). Never identify the world brush positionally.

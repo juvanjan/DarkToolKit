@@ -2097,7 +2097,11 @@ def run():
         if _TEX_OK[0]: _load_manifest()
     with open(GEO_PATH) as fh: data=json.load(fh)
     B=sorted(data["brushes"], key=lambda x:x["time"])
-    world=B[0]; body=B[1:]
+    # Pick the synthesised world box by its FLAG, not by position. A real mission brush can have
+    # time 0 (16.mis id29 does), and it would then tie with the old time-0 world box and could take
+    # its place - turning a small brush into the world and the world box into a solid fill.
+    world=next((b for b in B if b.get("world")), B[0])
+    body=[b for b in B if b is not world]
     if BUILD_TEXTURES:
         nf=sum(1 for b in B if b.get("faces"))
         unreal.log("Face-texture data: %d/%d brushes carry 'faces'"%(nf,len(B)))
@@ -2116,6 +2120,7 @@ def run():
         result=new_mesh()     # start EMPTY: no enclosing cuboid; only additive brushes contribute
         unreal.log("  world box SKIPPED (BUILD_WORLD_BOX=False) - starting from empty mesh")
     WATER=new_mesh()
+    BLOCK=new_mesh(); nblock=[0]     # `blockable` brushes: collision only, never rendered
     fails=[0]; first_err=[None]
     def BOP(tgt,tool,op): GB.apply_mesh_boolean(tgt,I,tool,I,op,O)
     def WOP(tool,op):
@@ -2174,6 +2179,10 @@ def run():
                 if guarded(i-1,b,op):
                     t=mk(b,grow_xy=FILL_UNION_GROW_CM); BOP(t,WATER,INTERSECT); BOP(result,t,UNION)
                 WOP(mk(b),SUBTRACT)
+            # blockable: NO visible geometry and NO media change - its media_op row resolves straight
+            # back to the base medium. It only ever collides. Collected separately so it can be baked
+            # into a hidden collision mesh; unioning it into `result` would make it a visible wall.
+            elif op==9: BOP(BLOCK,mk(b),UNION); nblock[0]+=1
         except Exception as e:
             fails[0]+=1
             if first_err[0] is None: first_err[0]=str(e)
@@ -2235,6 +2244,31 @@ def run():
     set_collision(sm)
     spawn(sm, ASSET_PATH.rsplit("/",1)[-1])
     unreal.log("Level -> %s"%ASSET_PATH)
+
+    if nblock[0] and tri_count(BLOCK)>0:
+        # `blockable` is invisible in Dark - it never contributes a rendered surface - but it must
+        # still stop you walking through. Bake it as its own mesh, give it collision, and hide the
+        # component: a hidden StaticMeshComponent keeps collision, so this blocks without drawing.
+        ensure_uv_normals(BLOCK)          # bake() asserts on a mesh with no UV channel
+        bpath=ASSET_PATH+"_Blockers"; bsm=bake(BLOCK, bpath)
+        if bsm is None:
+            unreal.log_warning("  blockers bake failed")
+        else:
+            set_collision(bsm)
+            a=spawn(bsm, bpath.rsplit("/",1)[-1])
+            hidden=False
+            try:
+                c=a.static_mesh_component
+                c.set_visibility(False)
+                c.set_editor_property("hidden_in_game", True)
+                c.set_collision_enabled(unreal.CollisionEnabled.QUERY_AND_PHYSICS)
+                hidden=True
+            except Exception as e:
+                unreal.log_warning("  could not hide the blocker mesh (%s) - it will be VISIBLE"%e)
+            unreal.log("Blockers -> %s  (%d brushes, %d tris, collision on, %s)"
+                       %(bpath,nblock[0],tri_count(BLOCK),"hidden" if hidden else "NOT hidden"))
+    elif nblock[0]:
+        unreal.log_warning("  %d blockable brushes produced no geometry"%nblock[0])
 
     if BUILD_WATER:
         if tri_count(WATER)==0:

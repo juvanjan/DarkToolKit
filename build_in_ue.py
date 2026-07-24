@@ -26,13 +26,23 @@
 
 import unreal, json, math
 
-GEO_PATH    = r"C:\Nex\DarkSimProject\DarkSimToolkit\test_missions\MISS5_mod2_geo.json"   # <-- SET (the *_geo.json)
+GEO_PATH    = r"C:\Nex\DarkSimProject\DarkSimToolkit\test_missions\16_geo.json"   # <-- SET (the *_geo.json)
 ASSET_PATH  = r"/Game/Mission/SM_Mission"
 BUILD_WATER = True        # also bake the water volume as a separate static mesh (SM_..._Water)
 BUILD_COLLISION = True    # give the mesh collision (complex-as-simple: the triangles ARE the collision)
-BUILD_WORLD_BOX = False    # True: start from the enclosing solid cuboid (brush 0) and carve into it (Dark
+BUILD_WORLD_BOX = True    # True: start from the enclosing solid cuboid (brush 0) and carve into it (Dark
                           #   default). False: start EMPTY - only additive/solid brushes appear, air carves
                           #   have nothing to cut (useful to preview individual brushes without the shell).
+STRIP_WORLD_SHELL = True  # drop the OUTWARD-facing skin of that enclosing cuboid. See _shell_planes().
+PROBE_ID9 = False         # diagnostic: log which of the id9 pit surfaces the boolean produced (16.mis).
+                          #   Hardcoded to 16.mis coordinates; flip to True when chasing missing faces.
+FILL_UNION_GROW_CM = 0.0  # 0 = OFF (geometry stays DromEd-exact). Inflates the fill-solid UNION tool's
+                          #   side walls (mk_box `_grow_xy`) to bury them in surrounding solid rather
+                          #   than coincide with the cavity walls. Kept because the mechanism is sound,
+                          #   but it did NOT cause the 16.mis missing pit walls: 1cm and 30cm produced
+                          #   byte-identical output, which is what disproved the coincidence theory.
+                          #   The real cause was triangle-id gaps - see tri_ids(). Leave at 0 unless a
+                          #   genuine coplanar-union artifact is proven; it perturbs real geometry.
 TEST_LIMIT  = 0          # 0 = full mission; >0 = world solid + first N brushes (quick preview)
 UV_TILE_CM  = 64.0        # world-space texture tile size (one texture repeat per this many cm)
                           #   calibrated to Dark scale 16 (~2.1 ft/tile). Halve it -> texture bigger.
@@ -217,6 +227,18 @@ def mk_box(b):
     t=unreal.Transform()
     t.set_editor_property("translation", unreal.Vector(C[0],C[1],C[2]))
     t.set_editor_property("rotation", _quat_from_axes(ax))
+    ext=list(ext)
+    if b.get("_grow_xy"):
+        # Grow the two NON-VERTICAL local extents outward (center fixed, so both opposing walls move
+        # out by _grow_xy). Used only for the fill-solid UNION tool: it refills the bottom of a carved
+        # cavity, and its side walls are otherwise EXACTLY coincident with the cavity walls -> the
+        # GeometryScript boolean discards the whole shared-plane polygon, taking the wall above the
+        # fill with it (the missing pit walls in 16.mis). Buried in surrounding solid, the union is a
+        # no-op there, and the vertical extent (the visible floor) is left untouched.
+        up=max(range(3), key=lambda k:abs(ax[k][2]))   # local axis most aligned with world +Z
+        g=float(b["_grow_xy"])
+        for k in range(3):
+            if k!=up: ext[k]+=g
     dx,dy,dz=2*ext[0],2*ext[1],2*ext[2]
     po=PrimOpts()
     args=[m,po,t,dx,dy,dz]
@@ -450,6 +472,35 @@ def _find(cands, *substr):
                 if not m.startswith("_") and all(x in m.lower() for x in substr): return o,m
     return None,None
 
+# ---------------------------------------------------------------- triangle ID enumeration
+# A UE DynamicMesh does NOT guarantee triangle IDs are 0..count-1. Every boolean deletes triangles,
+# and the freed IDs leave GAPS: after carving 16.mis the mesh held 110 triangles spread over a LARGER
+# id space. Iterating `range(tri_count(m))` therefore did two wrong things at once:
+#   - it queried ids inside the range that are DELETED; the query returns zeros, which showed up as
+#     11 bogus "degenerate" triangles at (0,0,0) with a zero normal, and
+#   - it never visited the 11 REAL triangles whose ids sit past the count.
+# rebuild_unwelded copies the mesh triangle by triangle, so those unvisited triangles were dropped
+# from the final mesh entirely -> see-through holes (the id9 pit walls). ALWAYS enumerate with
+# tri_ids(); never with range(tri_count(...)).
+GQ_NIDS, _NIDS = _find(["get_num_triangle_i_ds","get_num_triangle_ids"],"num","triangle","ids")
+GQ_VALID,_VALID = _find(["is_valid_triangle_id"],"valid","triangle","id")
+
+def tri_ids(m):
+    """Valid triangle ids of m, in order. Falls back to range(count) only if the API is unavailable."""
+    n=-1
+    if GQ_NIDS:
+        try: n=int(getattr(GQ_NIDS,_NIDS)(m))
+        except Exception: n=-1
+    if n<0: n=tri_count(m)
+    if n<0: return []
+    if not GQ_VALID: return list(range(n))
+    out=[]
+    for t in range(n):
+        try:
+            if getattr(GQ_VALID,_VALID)(m,t): out.append(t)
+        except Exception: out.append(t)
+    return out
+
 # per-triangle normal + per-triangle material id (works on fresh primitives with compact triangle ids)
 GQ_NORM, _TRINORM = _find(["get_triangle_face_normal"], "triangle","face","normal")
 GMAT_TRI,_SETMATTRI = _find(["set_triangle_material_id","set_material_id_on_triangle"])
@@ -629,10 +680,10 @@ def _tag_by_selection(mesh, faces, dom):
     return True
 
 def _tag_by_triangle(mesh, faces, dom):
-    tc=tri_count(mesh)
-    if not tc or tc<0: return False
+    ids=tri_ids(mesh)
+    if not ids: return False
     any_ok=False
-    for tid in range(tc):
+    for tid in ids:
         n=_tri_normal(mesh,tid)
         if n is None: continue
         best=None; bd=-2.0
@@ -853,12 +904,12 @@ def final_uv_check(mesh):
     projection gives uv_area/world_area ~ 1/tile^2 (in 1/cm^2). Reported as texels-per-metre so the
     numbers are readable, and as a spread so a wrong SCALE is visible too."""
     if GUVQ is None or GQ_NORM is None or GTRIPOS is None: return
-    tc=tri_count(mesh)
-    if not tc or tc<1: return
+    ids=tri_ids(mesh)
+    if not ids: return
     import math as _m
     buckets={}
-    step=max(1,tc//400)
-    for tid in range(0,tc,step):
+    step=max(1,len(ids)//400)
+    for tid in ids[::step]:
         uv=_read_tri_uv(mesh,tid)
         if not uv: continue
         n=_tri_normal(mesh,tid)
@@ -903,10 +954,10 @@ def final_uv_check(mesh):
 
 def uv_selfcheck(mesh, f, tid_hint=None):
     if GUVQ is None or _UVCHK["n"]>=60: return
-    tc=tri_count(mesh)
-    if not tc or tc<1: return
+    ids=tri_ids(mesh)
+    if not ids: return
     uvs=[]
-    for tid in range(min(tc,12)):
+    for tid in ids[:12]:
         for call in ((mesh,0,tid),(mesh,tid,0),(mesh,0,tid,True)):
             try:
                 r=getattr(GUVQ,_GETUV)(*call)
@@ -954,11 +1005,11 @@ def apply_cyl_face_uvs(mesh, b):
     if not _PERFACE_UV[0] or not (GSEL_N and GQ_NORM and GTRIPOS): return
     sides=[f for f in (b.get("faces") or []) if not f.get("cap") and f.get("tex")]
     if not sides: return
-    tc=tri_count(mesh)
-    if not tc or tc<0: return
+    ids=tri_ids(mesh)
+    if not ids: return
     # group UE side triangles by rounded normal -> one bucket per facet
     buckets={}
-    for tid in range(tc):
+    for tid in ids:
         nr=_tri_normal(mesh,tid)
         if nr is None or abs(nr.z)>0.9: continue                 # skip caps
         key=(round(nr.x,2),round(nr.y,2),round(nr.z,2))
@@ -1261,16 +1312,28 @@ def rebuild_unwelded(mesh, tri2face):
     wall, so their UVs stop varying -> zero UV area -> barcode. Proven by RETAG_UV_ONLY='vertical',
     which inverted the symptom exactly. Unwelding removes the sharing, so the problem cannot occur."""
     if GEDIT is None: return None
-    tc=tri_count(mesh)
-    if not tc or tc<1: return None
-    verts=[]; tris=[]; uvs=[]; mats=[]; miss=0
-    for tid in range(tc):
+    ids=tri_ids(mesh)                  # NOT range(tri_count): unvisited ids were DROPPED from the
+    if not ids: return None            # rebuilt mesh, which is exactly how faces became see-through
+    verts=[]; tris=[]; uvs=[]; mats=[]; miss=0; culled=0; degen=0
+    for tid in ids:
         f=tri2face.get(tid)
         try:
             r=getattr(GTRIPOS,_TRIPOS)(mesh,tid)
             ps=[x for x in (r if isinstance(r,(tuple,list)) else [r]) if hasattr(x,"x")]
         except Exception: continue
         if len(ps)<3: continue
+        # Drop DEGENERATE (near-zero-area) triangles. The boolean occasionally emits collapsed slivers
+        # (they showed up as bare tris at the origin with a zero normal). They render nothing but bloat
+        # the mesh and pollute the diagnostics.
+        e1=(ps[1].x-ps[0].x,ps[1].y-ps[0].y,ps[1].z-ps[0].z)
+        e2=(ps[2].x-ps[0].x,ps[2].y-ps[0].y,ps[2].z-ps[0].z)
+        cxd=_cross(e1,e2)
+        if (cxd[0]*cxd[0]+cxd[1]*cxd[1]+cxd[2]*cxd[2])<1e-6: degen+=1; continue
+        # Outward skin of the synthetic world block - a surface DromEd never draws. Rebuilding the
+        # mesh triangle by triangle is the cheapest place to remove it: just don't emit it.
+        if f is None and _SHELL[0] is not None:
+            p3=[(q.x,q.y,q.z) for q in ps[:3]]
+            if _is_shell_tri(p3,_tri_normal_from(p3)): culled+=1; continue
         base=len(verts)
         if f is None:
             # NO face matched. The old placeholder was (x/100, y/100) - a fixed projection down world
@@ -1327,9 +1390,49 @@ def rebuild_unwelded(mesh, tri2face):
         unreal.log_error("  rebuild_unwelded: %d/%d material assignments FAILED -> those triangles "
                          "render as flat grey (material 0)"%(matfail,len(mats)))
     ensure_uv_normals(m, uvs=False)
-    unreal.log("  rebuild_unwelded: %d tris -> %d verts (unwelded), uv set: %s, unmatched tris=%d"
-               %(len(tris),len(verts),",".join(ok) or "NONE",miss))
+    unreal.log("  rebuild_unwelded: %d tris -> %d verts (unwelded), uv set: %s, unmatched tris=%d%s%s"
+               %(len(tris),len(verts),",".join(ok) or "NONE",miss,
+                 ("  world-shell culled=%d"%culled) if culled else "",
+                 ("  degenerate culled=%d"%degen) if degen else ""))
     return m
+
+# ---------------------------------------------------------------- world-shell culling
+# mis_to_geo SYNTHESISES brush 0 (mis_to_geo.py ~L435): a solid cuboid 8ft larger than the mission
+# bounds, present only so the air brushes have something to carve into. It is not in the .MIS - note
+# that extract() returns nothing at time 0 - and it is written with faces=[]. Its OUTWARD skin
+# therefore has no texture record: retag leaves it bare and rebuild_unwelded paints it with
+# _fallback_matid(), i.e. an invented texture on a surface DromEd never draws. Dark only ever emits
+# surfaces that bound an open cell, so nothing outside the world exists at all.
+#
+# Culling it is safe: the level's own inner surfaces still fully enclose the playable space, so
+# collision and the view from inside are unchanged - the only difference is that the level stops
+# being wrapped in an opaque block when you look at it from outside.
+_SHELL   = [None]         # [(axis, plane_coord, outward_sign), ...] while culling is armed
+SHELL_EPS = 1.0           # cm; the shell planes are exact, this only absorbs boolean round-off
+
+def _shell_planes(world):
+    V=world.get("verts") or []
+    if len(V)<8: return None
+    P=[]
+    for ax in range(3):
+        vals=[v[ax] for v in V]
+        P.append((ax,min(vals),-1)); P.append((ax,max(vals),+1))
+    return P
+
+def _is_shell_tri(pts,nrl):
+    """True if this triangle lies ON an outer plane of the world block AND faces out of the world."""
+    S=_SHELL[0]
+    if not S or not pts: return False
+    for ax,plane,sgn in S:
+        if abs(nrl[ax])<0.9:   continue     # not perpendicular to that plane
+        if nrl[ax]*sgn<=0:     continue     # faces INWARD -> a real surface of the level, keep it
+        if all(abs(p[ax]-plane)<=SHELL_EPS for p in pts): return True
+    return False
+
+def _tri_normal_from(p3):
+    e1=[p3[1][k]-p3[0][k] for k in range(3)]; e2=[p3[2][k]-p3[0][k] for k in range(3)]
+    cx=_cross(e1,e2); L=math.sqrt(cx[0]**2+cx[1]**2+cx[2]**2)
+    return [cx[0]/L,cx[1]/L,cx[2]/L] if L>1e-12 else [0.0,0.0,1.0]
 
 RETAG_RESCUE_CM  = 60.0   # plane tolerance for the relaxed second pass (strict pass uses 15)
 RETAG_NORMAL_DOT = 0.99   # min |cos| between a result triangle's normal and a face's normal
@@ -1369,11 +1472,16 @@ def retag_final(mesh, body):
                     for cy in range(lo[1],hi[1]+1):
                         for cz in range(lo[2],hi[2]+1):
                             cells.setdefault((cx,cy,cz),[]).append(entry)
-    tc=tri_count(mesh)
-    if not tc or tc<0: unreal.log_warning("  retag: no triangle count"); return
+    ids=tri_ids(mesh)                  # NOT range(tri_count): boolean output has triangle id GAPS
+    if not ids: unreal.log_warning("  retag: no triangles"); return
+    tc=len(ids)
     _enable_matids(mesh)
-    groups={}; matched=0; unmatched=[]
-    for tid in range(tc):
+    groups={}; matched=0; unmatched=[]; shell=0
+    # --- id9 pit probe: report which of the open-pit surfaces the boolean actually produced.
+    # Open pit interior (cm): x[-1585.8,-1097.3] y[-609.6,609.6] z[-487.7,-243.8]. Bucket every final
+    # triangle whose centroid sits on one of the six bounding planes, by (plane, normal sign).
+    _PROBE=[]
+    for tid in ids:
         nr=_tri_normal(mesh,tid); c=_tri_centroid(mesh,tid)
         if nr is None or c is None: continue
         nrl=[nr.x,nr.y,nr.z]; cl=[c.x,c.y,c.z]
@@ -1384,6 +1492,13 @@ def retag_final(mesh, body):
             vs=[v for v in (r if isinstance(r,(tuple,list)) else [r]) if hasattr(v,"x")]
             if len(vs)>=3: tpts=[[v.x,v.y,v.z] for v in vs[:3]]
         except Exception: pass
+        # id9 pit probe (diagnostic; harmless): does a triangle exist on each pit surface?
+        if PROBE_ID9 and (-1650<cl[0]<-1030 and -680<cl[1]<680 and -540<cl[2]<-190):
+            _PROBE.append((round(cl[0]),round(cl[1]),round(cl[2]),
+                           round(nrl[0],2),round(nrl[1],2),round(nrl[2],2)))
+        # Outward skin of the synthetic world block: no face record can ever match it, so it would
+        # land in `unmatched` and be reported as bare. rebuild_unwelded drops it entirely.
+        if _is_shell_tri(tpts or [cl], nrl): shell+=1; continue
         best=None; bestt=-1; bestpd=1e9
         for (t,f) in cells.get(_cell(cl),[])+big:
             fn=f["n"]
@@ -1411,7 +1526,23 @@ def retag_final(mesh, body):
             groups.setdefault(id(best),(best,[]))[1].append(tid); matched+=1
         else:
             unmatched.append((tid,nrl,cl))
-    unreal.log("  retag: %d/%d tris matched to %d faces"%(matched,tc,len(groups)))
+    unreal.log("  retag: %d/%d tris matched to %d faces%s"%(matched,tc,len(groups),
+               ("  (+%d world-shell tris culled)"%shell) if shell else ""))
+    if PROBE_ID9:
+        unreal.log("  --- id9 PIT PROBE: %d final tris in the pit region ---"%len(_PROBE))
+        want={"floor z=-488 (n +Z)":  lambda p: abs(p[2]+488)<8  and p[5]>0.9,
+              "wall x=-1586 (n +X)":  lambda p: abs(p[0]+1586)<8 and p[3]>0.9,
+              "wall x=-1097 (n -X)":  lambda p: abs(p[0]+1097)<8 and p[3]<-0.9,
+              "wall y=-610  (n +Y)":  lambda p: abs(p[1]+610)<8  and p[4]>0.9,
+              "wall y=+610  (n -Y)":  lambda p: abs(p[1]-610)<8  and p[4]<-0.9}
+        for label,pred in want.items():
+            hits=[p for p in _PROBE if pred(p)]
+            unreal.log("     %-22s %s (%d tris)"%(label,"PRESENT" if hits else "*** MISSING ***",len(hits)))
+        # anything in the region that didn't fall into a named bucket (unexpected orientation)
+        named=[p for p in _PROBE if any(pred(p) for pred in want.values())]
+        for p in _PROBE:
+            if p not in named:
+                unreal.log("     other tri at (%d,%d,%d) n(%.2f,%.2f,%.2f)"%p)
 
     # RELAXED SECOND PASS for triangles the strict test missed.
     #
@@ -1516,7 +1647,11 @@ def assign_materials(sm):
         except Exception as e: unreal.log_warning("  slot %d (%s) assign failed: %s"%(mid,name,e))
     unreal.log("Assigned %d materials (+default)"%len(_MATS))
 
-def mk(b):
+def mk(b,grow_xy=0.0):
+    # grow_xy>0 inflates the two non-vertical walls of a BOX tool (fill-solid union only; see mk_box).
+    # A shallow copy carries the flag so the shared brush dict and its texture data are untouched.
+    if grow_xy and b.get("shape")=="box":
+        b=dict(b); b["_grow_xy"]=grow_xy
     if b.get("shape")=="box":      m=mk_box(b)
     elif b.get("shape")=="wedge":  m=mk_wedge(b)
     elif b.get("shape")=="cylinder": m=mk_cylinder(b)
@@ -1601,7 +1736,9 @@ def run():
     O=BoolOpts()
     if BUILD_WORLD_BOX:
         result=mk(world)      # start fully solid (the enclosing world box), then carve into it
-        unreal.log("  world solid tris=%s"%tri_count(result))
+        _SHELL[0]=_shell_planes(world) if STRIP_WORLD_SHELL else None
+        unreal.log("  world solid tris=%s%s"%(tri_count(result),
+                   "  (outward skin will be culled)" if _SHELL[0] else ""))
     else:
         result=new_mesh()     # start EMPTY: no enclosing cuboid; only additive brushes contribute
         unreal.log("  world box SKIPPED (BUILD_WORLD_BOX=False) - starting from empty mesh")
@@ -1616,13 +1753,13 @@ def run():
     for i,b in enumerate(body,1):
         op=b["op"]
         try:
-            if   op==0:  BOP(result,mk(b),UNION);    WOP(mk(b),SUBTRACT)
+            if   op==0:  BOP(result,mk(b,grow_xy=FILL_UNION_GROW_CM),UNION);    WOP(mk(b),SUBTRACT)
             elif op==1:  BOP(result,mk(b),SUBTRACT); WOP(mk(b),SUBTRACT)
             elif op==2:  BOP(result,mk(b),SUBTRACT); WOP(mk(b),UNION)
             elif op==3:  t=mk(b); BOP(t,result,SUBTRACT); BOP(WATER,t,UNION)
             elif op==4:  WOP(mk(b),SUBTRACT)
             elif op==5:  t=mk(b); BOP(t,result,INTERSECT); BOP(WATER,t,UNION); BOP(result,mk(b),SUBTRACT)
-            elif op==8:  t=mk(b); BOP(t,WATER,INTERSECT); BOP(result,t,UNION); WOP(mk(b),SUBTRACT)
+            elif op==8:  t=mk(b,grow_xy=FILL_UNION_GROW_CM); BOP(t,WATER,INTERSECT); BOP(result,t,UNION); WOP(mk(b),SUBTRACT)
         except Exception as e:
             fails[0]+=1
             if first_err[0] is None: first_err[0]=str(e)

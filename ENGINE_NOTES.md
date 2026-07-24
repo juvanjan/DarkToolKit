@@ -457,3 +457,87 @@ cylinder) also now correct.
 Note that step 3 subsumes the open id6 question in `ChatInfo/InitialChatSummary.md`: under
 the real algorithm id5 and id6 are both **Mode B**, so neither should get a brush-rotation
 term at all.
+
+
+## The synthetic world block has no faces (brush 0)
+
+`mis_to_geo.convert()` invents brush 0: a solid cuboid 8 ft larger than the mission bounds, written
+with `faces=[]`. It is NOT in the .MIS -- `extract()` returns nothing at time 0, because in Dark the
+world starts implicitly solid and every brush carves into it. We need a real mesh to carve, hence the
+box.
+
+Consequence: the box's OUTWARD skin carries no texture record. `retag_final` can never match it (it
+reports `candidates=0`, `bestcos=0.000` -- the giveaway that this is NOT a retag failure but a face
+that does not exist), and `rebuild_unwelded` then paints it with `_fallback_matid()`: an invented
+texture on a surface DromEd never draws. Dark only emits surfaces bounding an open cell, so nothing
+outside the world exists.
+
+`STRIP_WORLD_SHELL` culls it (`_is_shell_tri`): a triangle is shell iff all 3 verts lie on an outer
+plane of brush 0 AND its normal points out of the world. The inward test matters -- a real level
+surface can be coplanar with the shell, and it must survive. Culling is safe for collision: the
+level's own inner surfaces still fully enclose the playable space.
+
+Diagnostic worth repeating: for an axis-aligned mission the exact expected surface set can be
+computed OFFLINE by voxelising the brushes through the `media_op` transition table and extracting
+boundary quads. For 16.mis that gave 21 solid planes / 8 water planes, and the per-axis triangle
+counts in the build log (Z=22, exactly the minimum triangulation; X=29; Y=43) proved the mesh was
+complete. Do this before hunting for "missing faces" in the boolean output.
+
+
+## Fill-solid union drops walls at coincident cavity planes (16.mis pits)
+
+Symptom: a room floor is textured but its walls are MISSING (see-through holes), confirmed by the
+wall being absent from BOTH sides. In 16.mis every test chamber is a pit: an air brush carves down
+from the corridor floor, then a fill-SOLID brush (op=0) refills the bottom, leaving an open pit with
+a wood floor and stone walls. The walls came out as holes.
+
+Cause: the fill-solid brush has the SAME x/y footprint as the air cavity, so its four side faces are
+EXACTLY coplanar-coincident with the cavity walls. `apply_mesh_boolean(UNION)` at an exact coincidence
+discards the entire shared-plane polygon -- including the portion ABOVE the fill (z of the open pit),
+which had no business being removed. Net: the pit walls vanish.
+
+Why only fill-solid: op=0 UNIONS a box back into the carved cavity (creates the coincident wall).
+Water (op=2) and flood (op=3) only SUBTRACT from / never re-add to the solid `result` mesh, so they
+create no coincident wall and are unaffected. So the fix targets op=0 (and op=8, air->solid) ONLY.
+
+Fix (`FILL_UNION_GROW_CM`, mk_box `_grow_xy`): inflate the union tool's two NON-VERTICAL extents by
+1cm (center fixed, both opposing walls move outward). The walls then bury themselves 1cm inside the
+surrounding solid -- union there is a no-op -- so no coincident plane exists and the cavity walls
+survive intact. The vertical (floor-defining) extent is left EXACT, so the floor does not move. The
+up-axis is the local axis most aligned with world +Z, so it works for rotated fills too. Only the
+UNION tool is grown; the water-subtract tool of the same brush is left exact.
+
+General lesson: exact coplanar coincidence between a SUBTRACT and a later UNION at the same location
+is the reliable face-drop trigger in GeometryScript booleans. Nudge the additive tool outward.
+
+
+## Triangle IDs have GAPS -- never iterate `range(tri_count(m))`
+
+THE cause of "some faces are not being drawn" (16.mis id9 pit walls, and any other missing surface).
+
+A UE `DynamicMesh` does not keep triangle ids compact. Every boolean deletes triangles and the freed
+ids leave holes, so after carving 16.mis the mesh held 110 triangles spread over a LARGER id space.
+Every loop in this file used `for tid in range(tri_count(mesh))`, which is wrong twice over:
+
+  * ids inside the range that are DELETED still get queried. `get_triangle_positions` /
+    `get_triangle_face_normal` return zeros, which surfaced as 11 bogus "degenerate" triangles at
+    (0,0,0) with a (0,0,0) normal in the retag bare-tri report. They are not degenerate, they are
+    not triangles at all.
+  * REAL triangles whose id sits past the count are NEVER VISITED. `rebuild_unwelded` copies the mesh
+    triangle by triangle, so those were silently dropped from the final mesh -> see-through holes.
+
+The arithmetic is the giveaway, and it is worth checking first whenever faces go missing:
+`rebuild_unwelded: 99 tris` + `degenerate culled=11` == `Done carving: result tris=110`. Built plus
+"degenerate" exactly equalling the mesh count means the loop visited the wrong id set.
+
+Fix: `tri_ids(mesh)` enumerates via `get_num_triangle_i_ds` + `is_valid_triangle_id` (both were
+already in the resolved-function list all along). All six iteration sites now use it. If those APIs
+are missing it falls back to `range(count)`, i.e. the old behaviour.
+
+Note this ALSO silently corrupted texturing, not just geometry: retag keys `tri2face` by triangle id,
+so with the wrong id set some triangles were tagged from a neighbour's entry.
+
+Dead end recorded so it is not retried: the missing walls were NOT a coplanar-coincidence artifact
+between the air carve and the fill-solid union. `FILL_UNION_GROW_CM` at 1cm and at 30cm produced
+byte-identical boolean output (110 tris, identical probe) -- a 30x change with zero effect is what
+disproved it. It is left in the file at 0.0.

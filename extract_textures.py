@@ -77,6 +77,33 @@ def read_txlist(path):
 def read_txlist_names(path):
     return [nm for nm, _ in read_txlist(path)]
 
+def read_water_prefix(path):
+    """The mission's water family prefix, from the FAMILY chunk (render/family.c:900).
+
+    family_name_block is [sky_name, water_name, <MAX_FAMILIES family names>], each FAM_NAME_LEN=24
+    bytes. The engine then loads `<prefix>in` and `<prefix>out` out of fam\\waterhw\\ into the two
+    RESERVED texture slots WATERIN_IDX=247 / WATEROUT_IDX=248 (family.c:406 family_load_water). Water
+    surfaces are never textured from a brush face, so this is the only place the choice is recorded.
+    Layout: 24-byte chunk header, then size_per(4), cnt(4), then cnt entries. NewDark raised
+    MAX_FAMILIES to 32, so cnt is 34 rather than the 18 the shipped source implies."""
+    try:
+        f = open(path, "rb").read()
+        toc = struct.unpack_from("<I", f, 0)[0]
+        cnt = struct.unpack_from("<I", f, toc)[0]
+        p = toc + 4; chunks = {}
+        for _ in range(cnt):
+            nm = f[p:p+12].split(b"\x00")[0].decode("latin1")
+            off, ln = struct.unpack_from("<II", f, p+12); chunks[nm] = (off, ln); p += 20
+        if "FAMILY" not in chunks: return ""
+        o, _l = chunks["FAMILY"]
+        per, n = struct.unpack_from("<II", f, o+24)
+        if per <= 0 or n < 2: return ""
+        base = o + 32
+        return f[base+per:base+2*per].split(b"\x00")[0].decode("latin1")   # entry 1 = water
+    except Exception as e:
+        print("  ! could not read FAMILY from %s (%s)" % (os.path.basename(path), e))
+        return ""
+
 def gather_needed(mis_arg):
     files = []
     if os.path.isdir(mis_arg):
@@ -93,6 +120,13 @@ def gather_needed(mis_arg):
     family = {}      # lower name -> family folder (from TXLIST)
     for mf in files:
         entries = read_txlist(mf)
+        # Water surfaces carry NO brush-face texture - the engine substitutes the reserved slots
+        # 247/248 from the mission's water family - so they never appear in TXLIST and would be
+        # missed entirely. Pull `<prefix>in`/`<prefix>out` from waterhw explicitly.
+        wp = read_water_prefix(mf)
+        if wp:
+            for suf in ("in", "out"):
+                entries = entries + [(wp + suf, "waterhw")]
         for nm, fam in entries:
             k = nm.lower()
             needed.setdefault(k, nm)

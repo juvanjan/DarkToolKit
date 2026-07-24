@@ -194,6 +194,25 @@ def read_txlist(chunks, f):
         names.append(d[p+4:p+20].split(b"\x00")[0].decode("latin1")); p+=20
     return names
 
+def read_water_prefix(chunks, f):
+    """The mission's water family prefix from the FAMILY chunk (render/family.c:900).
+
+    family_name_block is [sky_name, water_name, <families>], each FAM_NAME_LEN=24 bytes; the engine
+    loads `<prefix>in`/`<prefix>out` from fam\\waterhw\\ into the RESERVED slots WATERIN_IDX=247 and
+    WATEROUT_IDX=248. A water surface NEVER takes a brush-face texture - get_texture_for_medium_
+    transition (editor/cvtbrush.c:169) substitutes those two slots by crossing direction - so this
+    chunk is the only record of which water look the mission uses. All our test missions say 'gr'.
+    Layout: size_per(4), cnt(4) at +24, then cnt entries. NewDark's MAX_FAMILIES=32 makes cnt 34."""
+    if "FAMILY" not in chunks: return ""
+    o,_l=chunks["FAMILY"]
+    try:
+        per,n=struct.unpack_from("<II",f,o+24)
+        if per<=0 or n<2: return ""
+        base=o+32
+        return f[base+per:base+2*per].split(b"\x00")[0].decode("latin1")
+    except Exception:
+        return ""
+
 # -- per-face texture assignment ------------------------------------------------------------------
 # Dark stores one texture id per brush face, in a fixed per-shape record order. We map each record
 # slot to a LOCAL face normal, then bake that normal into UE space (F @ R @ n) so the Unreal side can
@@ -372,6 +391,7 @@ def extract(path):
     for _ in range(cnt):
         nm=f[p:p+12].split(b"\x00")[0].decode("latin1"); off,ln=struct.unpack_from("<II",f,p+12); chunks[nm]=(off,ln); p+=20
     names=read_txlist(chunks, f)
+    water=read_water_prefix(chunks, f)
     o,l=chunks["BRLIST"]; d=f[o+24:o+24+l]; N=len(d)
     # BRLIST is a SEQUENTIAL list of brush records (76-byte header + trailing data). Terrain brushes
     # (media/op 0-8) carry a face array -> record = 76 + nfaces*10. Non-terrain brushes (objects,
@@ -404,10 +424,10 @@ def extract(path):
                                 ftex=ftex,fscl=fscl,frot=frot,fuof=fuof,fvof=fvof))
         p+=76+nf*10
     out.sort(key=lambda b:b["time"])
-    return out, names
+    return out, names, water
 
 def convert(inp, outp):
-    B,names=extract(inp)
+    B,names,water=extract(inp)
     allfaces=[faces_for(b,names) for b in B]
     resolve_inheritance(B, allfaces)          # Dark rule: -1 faces inherit the solid they carve into
     brushes=[]; allv=[]
@@ -451,6 +471,10 @@ def convert(inp, outp):
     world=dict(id=0,time=0,op=0,shape="box",verts=[[round(x,3) for x in v] for v in Vw],tris=[list(t) for t in Tw],faces=[])
     brushes=[world]+brushes
     json.dump(dict(units="cm",note="world-space verts baked with Dark rotation Rz(H)Ry(P)Rx(B), Y-negated to UE",
+                   # Water look for THIS mission. `in` is the surface seen from the air side, `out`
+                   # the one seen from underwater (cvtbrush.c:169 picks by crossing direction).
+                   water=dict(prefix=water, tex_in=(water+"in") if water else "",
+                              tex_out=(water+"out") if water else ""),
                    brushes=brushes),open(outp,"w"))
     return len(brushes), dict(sorted(Counter(b['op'] for b in brushes).items()))
 

@@ -34,6 +34,8 @@ BUILD_WORLD_BOX = True    # True: start from the enclosing solid cuboid (brush 0
                           #   default). False: start EMPTY - only additive/solid brushes appear, air carves
                           #   have nothing to cut (useful to preview individual brushes without the shell).
 STRIP_WORLD_SHELL = True  # drop the OUTWARD-facing skin of that enclosing cuboid. See _shell_planes().
+WATER_PROBE_CM = 4.0      # how far outside a water face to sample the medium when deciding whether
+                          #   that face is a water/air surface (drawn) or buried against solid (not).
 PROBE_ID9 = False         # diagnostic: log which of the id9 pit surfaces the boolean produced (16.mis).
                           #   Hardcoded to 16.mis coordinates; flip to True when chasing missing faces.
 FILL_UNION_GROW_CM = 0.0  # 0 = OFF (geometry stays DromEd-exact). Inflates the fill-solid UNION tool's
@@ -482,6 +484,9 @@ def _find(cands, *substr):
 # rebuild_unwelded copies the mesh triangle by triangle, so those unvisited triangles were dropped
 # from the final mesh entirely -> see-through holes (the id9 pit walls). ALWAYS enumerate with
 # tri_ids(); never with range(tri_count(...)).
+GMAT_ALL,_SETMATALL = _find(["set_all_triangle_material_i_ds","set_all_triangle_material_ids"],
+                            "set","all","material")
+GMAT_DEL,_MATDEL = _find(["delete_triangles_by_material_id"],"delete","material")
 GQ_NIDS, _NIDS = _find(["get_num_triangle_i_ds","get_num_triangle_ids"],"num","triangle","ids")
 GQ_VALID,_VALID = _find(["is_valid_triangle_id"],"valid","triangle","id")
 
@@ -630,6 +635,32 @@ def _make_material(name, tex):
         MEL.recompile_material(mat)
     except Exception as e:
         unreal.log_warning("  material wiring failed for %s (%s)"%(name,e))
+    return mat
+
+def _make_water_material(name, tex):
+    """Translucent two-sided material for the water volume.
+
+    Dark never textures a water surface from a brush face: get_texture_for_medium_transition
+    (editor/cvtbrush.c:169) substitutes the reserved slots WATERIN_IDX=247 / WATEROUT_IDX=248 by
+    crossing direction, and the images come from the mission's water family (fam\\waterhw\\<prefix>
+    in/out). The NewDark t2water pack ships these as 256x256 DDS with real alpha baked in, so the
+    texture's own A drives opacity. Water surfaces are also flagged RENDER_DOESNT_LIGHT (csg.c:252) -
+    they are unlit in Dark - hence the emissive hookup rather than base colour alone."""
+    ex=_existing(MAT_ROOT, "M_"+name)
+    if ex is not None: return ex
+    MEL=unreal.MaterialEditingLibrary
+    at=unreal.AssetToolsHelpers.get_asset_tools()
+    mat=at.create_asset("M_"+name, MAT_ROOT, unreal.Material, unreal.MaterialFactoryNew())
+    try:
+        mat.set_editor_property("blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)
+        mat.set_editor_property("two_sided", True)
+        ts=MEL.create_material_expression(mat, unreal.MaterialExpressionTextureSample)
+        ts.set_editor_property("texture",tex)
+        MEL.connect_material_property(ts,"RGB",unreal.MaterialProperty.MP_BASE_COLOR)
+        MEL.connect_material_property(ts,"A",  unreal.MaterialProperty.MP_OPACITY)
+        MEL.recompile_material(mat)
+    except Exception as e:
+        unreal.log_warning("  water material wiring failed for %s (%s)"%(name,e))
     return mat
 
 def _default_material():
@@ -1717,6 +1748,68 @@ def spawn(sm, label):
     a=eas.spawn_actor_from_class(unreal.StaticMeshActor,unreal.Vector(0,0,0))
     a.static_mesh_component.set_static_mesh(sm); a.set_actor_label(label); return a
 
+# ---------------------------------------------------------------- exact medium lookup (Dark's rule)
+# Dark renders a water surface ONLY where water meets AIR. get_texture_for_medium_transition
+# (editor/cvtbrush.c:169) hands back WATERIN/WATEROUT for the air<->water crossings, and
+# ConvertOnePortal drops the boundary entirely when both sides end up the same medium:
+#     if (dest_final_medium == final_medium) { render_info->texture_id = 0; }
+# Where water meets SOLID the visible surface belongs to the solid brush and wears its own texture,
+# so the water volume's face there must not be drawn at all - it would z-fight the wall.
+#
+# We can answer "what medium is at point P" exactly, the same way DromEd does: replay the media ops
+# in brush order. Every Dark primitive is CONVEX, so "P is inside brush b" is just a plane test.
+SOLID,AIR,WATER_M = 0,1,2
+MEDIA_T = {0:{SOLID:SOLID, AIR:SOLID, WATER_M:SOLID},   # 0 fill solid
+           1:{SOLID:AIR,   AIR:AIR,   WATER_M:AIR},     # 1 fill air
+           2:{SOLID:WATER_M,AIR:WATER_M,WATER_M:WATER_M},# 2 fill water
+           3:{SOLID:SOLID, AIR:WATER_M,WATER_M:WATER_M},# 3 flood  (only fills existing air)
+           4:{SOLID:SOLID, AIR:AIR,   WATER_M:AIR}}     # 4 evaporate
+
+def _brush_solid(b):
+    """(planes, bbox) for a convex brush. Planes are outward-facing: dot(n,P) <= d means inside."""
+    V=b.get("verts") or []; T=b.get("tris") or []
+    if len(V)<4 or not T: return None
+    n=float(len(V)); C=[sum(v[i] for v in V)/n for i in range(3)]
+    planes=[]; seen=set()
+    for t in T:
+        p0,p1,p2=V[t[0]],V[t[1]],V[t[2]]
+        e1=[p1[k]-p0[k] for k in range(3)]; e2=[p2[k]-p0[k] for k in range(3)]
+        cx=_cross(e1,e2); L=math.sqrt(cx[0]**2+cx[1]**2+cx[2]**2)
+        if L<1e-9: continue
+        nr=[cx[k]/L for k in range(3)]; d=_dot(nr,p0)
+        if _dot(nr,C)-d>0: nr=[-x for x in nr]; d=-d      # orient outward (centroid must be inside)
+        key=(round(nr[0],4),round(nr[1],4),round(nr[2],4),round(d,2))
+        if key in seen: continue
+        seen.add(key); planes.append((nr,d))
+    bb=[[min(v[i] for v in V) for i in range(3)],[max(v[i] for v in V) for i in range(3)]]
+    return (planes,bb)
+
+def _inside_solid(P, sol, eps=0.05):
+    planes,bb=sol
+    for i in range(3):
+        if P[i]<bb[0][i]-eps or P[i]>bb[1][i]+eps: return False   # cheap bbox reject
+    for nr,d in planes:
+        if _dot(nr,P)>d+eps: return False
+    return True
+
+def build_media_model(world, body):
+    """Precompute convex descriptions once; returns (world_solid, [(op, solid), ...]) in time order."""
+    ws=_brush_solid(world)
+    seq=[]
+    for b in sorted(body, key=lambda x:x.get("time",0)):
+        if b.get("op") not in MEDIA_T: continue
+        s=_brush_solid(b)
+        if s: seq.append((b["op"], s))
+    return ws, seq
+
+def medium_at(P, model):
+    """Final medium at P: SOLID / AIR / WATER_M. Outside the world block everything is AIR."""
+    ws,seq=model
+    m = SOLID if (ws and _inside_solid(P,ws)) else AIR
+    for op,sol in seq:
+        if _inside_solid(P,sol): m=MEDIA_T[op][m]
+    return m
+
 # ---------------------------------------------------------------- media state machine (direct, solid-first)
 def run():
     if BUILD_TEXTURES:
@@ -1823,9 +1916,55 @@ def run():
             unreal.log("No water in this mission - skipping water mesh.")
         else:
             ensure_uv_normals(WATER)
+            # The water volume is assembled from mk(b) meshes, and mk() tags each triangle with the
+            # BRUSH FACE's material id (bigbl, rufgry, ...). Those ids are meaningless here - a water
+            # surface never wears a brush texture - and they left every triangle pointing at a slot
+            # this mesh does not fill, i.e. untextured. Collapse them all onto slot 0 first.
+            _enable_matids(WATER)
+            # Dark draws a water surface ONLY at a water/air boundary. Sample just OUTSIDE each water
+            # triangle (centroid + eps*outward normal) and keep it only if that lands in AIR; where it
+            # lands in solid the wall owns the surface and this face must not be drawn. Keepers get
+            # material 0, the rest material 1, then material 1 is deleted wholesale.
+            model=build_media_model(world, body)
+            keep=drop=0
+            for t in tri_ids(WATER):
+                nr=_tri_normal(WATER,t); c=_tri_centroid(WATER,t)
+                if nr is None or c is None: _set_matid_tri(WATER,t,0); keep+=1; continue
+                P=[c.x+nr.x*WATER_PROBE_CM, c.y+nr.y*WATER_PROBE_CM, c.z+nr.z*WATER_PROBE_CM]
+                if medium_at(P,model)==AIR: _set_matid_tri(WATER,t,0); keep+=1
+                else:                       _set_matid_tri(WATER,t,1); drop+=1
+            if drop and GMAT_DEL:
+                try:
+                    getattr(GMAT_DEL,_MATDEL)(WATER,1)
+                    unreal.log("  water surface: kept %d tris at water/air, removed %d against solid"
+                               %(keep,drop))
+                except Exception as e:
+                    unreal.log_warning("  could not delete non-air water faces (%s) - the water box "
+                                       "will show its buried sides"%e)
+            else:
+                unreal.log("  water surface: kept %d tris at water/air, removed %d against solid"
+                           %(keep,drop))
+            if tri_count(WATER)==0:
+                unreal.log("No water/air surface in this mission - skipping water mesh."); return
             wpath=ASSET_PATH+"_Water"; wsm=bake(WATER, wpath)
             if wsm is not None:
+                # The water look comes from the mission's FAMILY chunk, not from any brush face.
+                wt=(data.get("water") or {}).get("tex_in") or ""
+                wmat=None
+                if _TEX_OK[0] and wt:
+                    wtex=_import_texture(wt)
+                    if wtex: wmat=_make_water_material(wt, wtex)
+                    else:    unreal.log_warning("  water texture '%s' not in the manifest - re-run "
+                                                "extract_textures.py to pull the waterhw family"%wt)
+                if wmat is not None:
+                    try:
+                        wsm.set_material(0, wmat)      # same call the main mesh uses; static_materials
+                        unreal.log("Water -> %s  material=M_%s on slot 0 (translucent, two-sided, "
+                                   "%s tris retagged)"%(wpath,wt,"all" if nre<0 else nre))
+                    except Exception as e:
+                        unreal.log_warning("  could not assign water material (%s)"%e)
+                else:
+                    unreal.log("Water -> %s  (no water texture; assign a material by hand)"%wpath)
                 spawn(wsm, wpath.rsplit("/",1)[-1])
-                unreal.log("Water -> %s  (assign a translucent, two-sided material)"%wpath)
             else: unreal.log_warning("water bake failed")
 run()

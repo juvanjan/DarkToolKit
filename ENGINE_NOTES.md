@@ -541,3 +541,71 @@ Dead end recorded so it is not retried: the missing walls were NOT a coplanar-co
 between the air carve and the fill-solid union. `FILL_UNION_GROW_CM` at 1cm and at 30cm produced
 byte-identical boolean output (110 tris, identical probe) -- a 30x change with zero effect is what
 disproved it. It is left in the file at 0.0.
+
+
+## Water textures: the FAMILY chunk, not the brush faces
+
+A water surface NEVER takes a texture from a brush face. `get_texture_for_medium_transition`
+(editor/cvtbrush.c:169) overrides the face id with one of two RESERVED slots, chosen by which way
+you cross the boundary:
+
+    air -> water  =>  WATERIN_IDX  = 247    (surface seen from the air side)
+    water -> air  =>  WATEROUT_IDX = 248    (surface seen from underwater)
+    same medium both sides => 0, the boundary is not rendered at all
+
+All three reserved ids (247, 248, and 249 = BACKHACK/sky) are also flagged RENDER_DOESNT_LIGHT
+(csg.c:252) -- water and sky are UNLIT in Dark, never lightmapped.
+
+Which images fill those slots comes from the mission's FAMILY chunk, entry 1 (entry 0 is the sky
+family) -- `family_name_block_build`, render/family.c:900. `family_load_water(prefix)` then loads
+`<prefix>in` and `<prefix>out` from `fam\waterhw\` (family.c:406; the dir is picked by render type,
+`fam\water\` for software and `fam\waterhw\` for hardware, family.c:58).
+
+Chunk layout: 24-byte header, then size_per(4) = FAM_NAME_LEN = 24, then cnt(4), then cnt entries.
+NewDark raised MAX_FAMILIES from 16 to 32, so cnt is 34, not the 18 the shipped source implies. Read
+it with read_water_prefix() (both mis_to_geo.py and extract_textures.py have one).
+
+EVERY mission in this repo says `gr` -- green water. Do not guess blue; read the chunk.
+
+FLOW_TEX is a different, per-flow-group override (`sEdMedMoSurface`, editsave.c:558): 256 entries of
+32 bytes {short in, short out, char prefix[16], char pad[12]}, payload starting 24 bytes into the
+chunk. In our missions every entry is in=247 out=248 with an EMPTY prefix, i.e. "use the mission
+default", so FAMILY is the operative setting.
+
+Where the images live: the NewDark HD pack `MODS/t2water/FAM/WATERHW/` is active via `mod_path` in
+cam_mod.ini, so that is what DromEd actually displays -- 256x256 DDS with real alpha baked in, plus
+20 animation frames each (`GRin_1..19`) and a .mtl declaring `terrain_scale 128`, `ani_rate 60`,
+`ani_frames 20`. We currently use the single base frame; the `_N` frames are there if the water is
+ever animated. index_sources() already picks the loose HD .dds over the fam.crf PCX.
+
+
+## A water surface exists ONLY where water meets air
+
+Dark does not draw the water volume -- it draws the water/air INTERFACE. Two rules in the source:
+
+  * `get_texture_for_medium_transition` (editor/cvtbrush.c:169) returns WATERIN for air->water and
+    WATEROUT for water->air, and nothing else. A water/solid boundary is not a water surface.
+  * `ConvertOnePortal` drops a boundary outright when both sides settle to the same medium:
+        if (dest_final_medium == final_medium) { render_info->texture_id = 0; }
+
+Where water meets solid, the visible surface belongs to the SOLID brush and wears its own face
+texture. The water volume's face there must not be drawn at all or it z-fights the wall. For a pool
+sunk into a chamber floor that means exactly ONE drawn face: the top.
+
+We decide this exactly rather than by heuristic. `medium_at(P, model)` replays the media ops in brush
+order the way DromEd does; every Dark primitive is CONVEX, so "P inside brush" is just
+`dot(n,P) <= d` over the brush's face planes (derived from its own triangles and oriented outward
+against the brush centroid, so winding does not matter -- which is essential, because the geo's
+Y-reflection has determinant -1 and flips winding). Then each water triangle is probed at
+`centroid + WATER_PROBE_CM * outward_normal`: lands in AIR -> keep, anything else -> delete.
+
+Validation worth repeating for any change to the media logic: `medium_at` was cross-checked against
+the independent voxel model over all 6048 cell centres of 16.mis with 0 disagreements, and the water
+brush's six faces then resolved to cull/cull/cull/cull/cull + draw-top.
+
+Implementation note: the water volume is assembled from `mk(b)` meshes, and `mk()` tags every
+triangle with the BRUSH FACE's material id (bigbl, rufgry, ...). Those ids are meaningless on the
+water mesh and pointed at slots it never fills, which rendered it untextured. Keepers are retagged to
+material 0 and the culled ones to material 1, then `delete_triangles_by_material_id(WATER, 1)`
+removes them in one call. Assign with `sm.set_material(0, mat)` -- the same call assign_materials
+uses; `set_editor_property("static_materials", ...)` did not take.

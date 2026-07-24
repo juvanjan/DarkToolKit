@@ -34,6 +34,11 @@ BUILD_WORLD_BOX = True    # True: start from the enclosing solid cuboid (brush 0
                           #   default). False: start EMPTY - only additive/solid brushes appear, air carves
                           #   have nothing to cut (useful to preview individual brushes without the shell).
 STRIP_WORLD_SHELL = True  # drop the OUTWARD-facing skin of that enclosing cuboid. See _shell_planes().
+REBUILD_MATERIALS = True  # WATER material only: delete + recreate instead of reusing. Materials are
+                          #   cached BY ASSET NAME, so an edit to the material graph stays invisible
+                          #   until the old asset goes - a stale static M_grin is exactly why the
+                          #   flipbook did not appear. Cheap here (one asset); the ~170 per-face
+                          #   materials are still reused. Set False once the graph is settled.
 WATER_PROBE_CM = 4.0      # how far outside a water face to sample the medium when deciding whether
                           #   that face is a water/air surface (drawn) or buried against solid (not).
 PROBE_ID9 = False         # diagnostic: log which of the id9 pit surfaces the boolean produced (16.mis).
@@ -637,30 +642,127 @@ def _make_material(name, tex):
         unreal.log_warning("  material wiring failed for %s (%s)"%(name,e))
     return mat
 
-def _make_water_material(name, tex):
-    """Translucent two-sided material for the water volume.
+def _import_png(fname):
+    """Import an arbitrary PNG from the texture folder (used for animation atlases)."""
+    stem=_os.path.splitext(fname)[0]
+    ex=_existing(MAT_ROOT, stem)
+    if ex is not None: return ex
+    png=_os.path.join(_TEX_ROOT[0], fname)
+    if not _os.path.isfile(png): unreal.log_warning("  missing PNG %s"%png); return None
+    task=unreal.AssetImportTask()
+    task.set_editor_property("filename",png); task.set_editor_property("destination_path",MAT_ROOT)
+    task.set_editor_property("automated",True); task.set_editor_property("replace_existing",True)
+    task.set_editor_property("save",False)
+    unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([task])
+    outs=task.get_editor_property("imported_object_paths")
+    if not outs: unreal.log_warning("  atlas import FAILED: %s"%png); return None
+    return unreal.load_asset(outs[0])
+
+# HLSL for one Custom node: map the surface UV into the current frame's cell of a sprite-sheet atlas.
+# frac(UV) keeps a TILING surface inside its cell (water tiles many times across a pool). Mip
+# selection across that frac seam is why the atlas is imported with mipmaps OFF.
+_FLIPBOOK_HLSL = """
+float ph = frac(T / %(loop)ff);
+int fi = (int)floor(ph * %(frames)d.0);
+fi = min(fi, %(frames)d - 1);
+float c = (float)(fi %% %(cols)d);
+float r = (float)(fi / %(cols)d);
+return float2((frac(UV.x) + c) / %(cols)d.0, (frac(UV.y) + r) / %(rows)d.0);
+"""
+
+def _make_water_material(name):
+    """Translucent two-sided water material, animated when the family ships frames.
 
     Dark never textures a water surface from a brush face: get_texture_for_medium_transition
     (editor/cvtbrush.c:169) substitutes the reserved slots WATERIN_IDX=247 / WATEROUT_IDX=248 by
     crossing direction, and the images come from the mission's water family (fam\\waterhw\\<prefix>
-    in/out). The NewDark t2water pack ships these as 256x256 DDS with real alpha baked in, so the
-    texture's own A drives opacity. Water surfaces are also flagged RENDER_DOESNT_LIGHT (csg.c:252) -
-    they are unlit in Dark - hence the emissive hookup rather than base colour alone."""
-    ex=_existing(MAT_ROOT, "M_"+name)
-    if ex is not None: return ex
+    in/out). The NewDark t2water pack ships 256x256 DDS with real alpha baked in, so the texture's
+    own A drives opacity.
+
+    Animation: Dark loads sibling frames <base>_1.._N (render/anim_txt.c) and advances one frame
+    every `ani_rate` MILLISECONDS - 60ms x 20 frames = a 1.2s loop for water - in WRAP mode, i.e. a
+    plain forward cycle. extract_textures.py packs those frames into one atlas; here a single Custom
+    node turns elapsed Time into that frame's cell. If any of the animated wiring fails we fall back
+    to the static base frame rather than leaving a broken material."""
+    entry=_MANIFEST.get(name) or _MANIFEST_LC.get(name.lower()) or {}
+    anim=entry.get("anim")
+    # DISTINCT asset name for the animated variant. Materials are reused when the asset already
+    # exists, so an M_<name> left over from a build that made a STATIC water material would be
+    # returned verbatim and no amount of editing this function would ever show up. The suffix makes
+    # the animated material a different asset; REBUILD_MATERIALS forces a rebuild after any later
+    # edit to the graph, which reuse would otherwise hide.
+    aname="M_"+name+("_anim" if anim else "")
+    if REBUILD_MATERIALS:
+        try:
+            p=MAT_ROOT.rstrip("/")+"/"+aname
+            if unreal.EditorAssetLibrary.does_asset_exist(p):
+                unreal.EditorAssetLibrary.delete_asset(p)
+                unreal.log("  water material: deleted %s to rebuild (REBUILD_MATERIALS)"%aname)
+        except Exception as e: unreal.log_warning("  could not delete %s (%s)"%(aname,e))
+    else:
+        ex=_existing(MAT_ROOT, aname)
+        if ex is not None:
+            unreal.log("  water material: REUSED existing %s (set REBUILD_MATERIALS=True to "
+                       "regenerate it after changing the graph)"%aname)
+            return ex
     MEL=unreal.MaterialEditingLibrary
     at=unreal.AssetToolsHelpers.get_asset_tools()
-    mat=at.create_asset("M_"+name, MAT_ROOT, unreal.Material, unreal.MaterialFactoryNew())
+    mat=at.create_asset(aname, MAT_ROOT, unreal.Material, unreal.MaterialFactoryNew())
     try:
         mat.set_editor_property("blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)
         mat.set_editor_property("two_sided", True)
-        ts=MEL.create_material_expression(mat, unreal.MaterialExpressionTextureSample)
-        ts.set_editor_property("texture",tex)
+    except Exception as e:
+        unreal.log_warning("  water material flags failed (%s)"%e)
+    ts=MEL.create_material_expression(mat, unreal.MaterialExpressionTextureSample)
+    tex=None; animated=False
+    if anim:
+        tex=_import_png(anim["atlas"])
+        if tex is not None:
+            try: tex.set_editor_property("mip_gen_settings",
+                                         unreal.TextureMipGenSettings.TMGS_NO_MIPMAPS)
+            except Exception: pass
+            try:
+                ts.set_editor_property("texture",tex)
+                uv=MEL.create_material_expression(mat, unreal.MaterialExpressionTextureCoordinate)
+                tm=MEL.create_material_expression(mat, unreal.MaterialExpressionTime)
+                cu=MEL.create_material_expression(mat, unreal.MaterialExpressionCustom)
+                cu.set_editor_property("code", _FLIPBOOK_HLSL % {
+                    "loop": max(1e-3, float(anim["loop_s"])), "frames": int(anim["frames"]),
+                    "cols": int(anim["cols"]), "rows": int(anim["rows"])})
+                cu.set_editor_property("output_type", unreal.CustomMaterialOutputType.CMOT_FLOAT2)
+                ins=[]
+                for nm in ("UV","T"):
+                    ci=unreal.CustomInput(); ci.set_editor_property("input_name", nm); ins.append(ci)
+                cu.set_editor_property("inputs", ins)
+                MEL.connect_material_expressions(uv,"",cu,"UV")
+                MEL.connect_material_expressions(tm,"",cu,"T")
+                MEL.connect_material_expressions(cu,"",ts,"UVs")
+                animated=True
+            except Exception as e:
+                unreal.log_warning("  water flipbook wiring failed (%s) - using the static frame"%e)
+                tex=None
+    if not animated:
+        tex=_import_texture(name)
+        if tex is not None:
+            try: ts.set_editor_property("texture",tex)
+            except Exception as e: unreal.log_warning("  water texture bind failed (%s)"%e)
+    try:
         MEL.connect_material_property(ts,"RGB",unreal.MaterialProperty.MP_BASE_COLOR)
         MEL.connect_material_property(ts,"A",  unreal.MaterialProperty.MP_OPACITY)
         MEL.recompile_material(mat)
     except Exception as e:
         unreal.log_warning("  water material wiring failed for %s (%s)"%(name,e))
+    if animated:
+        unreal.log("  water material: ANIMATED %d frames, %dms/frame (%.2fs %s loop), atlas %dx%d"
+                   %(anim["frames"],anim["rate_ms"],anim["loop_s"],anim["mode"],
+                     anim["cols"],anim["rows"]))
+        # Only WRAP (plain forward cycle) is implemented. REVERSE/PINGPONG bounce at the ends
+        # (ectsAnimHitEdge), which the Custom node does not do - say so instead of looking right.
+        if anim["mode"]!="WRAP":
+            unreal.log_warning("  ani_mode is %s but the flipbook only does WRAP (forward loop); "
+                               "the bounce is NOT reproduced"%anim["mode"])
+    else:
+        unreal.log("  water material: static single frame%s"%("" if not anim else " (atlas unavailable)"))
     return mat
 
 def _default_material():
@@ -1952,10 +2054,11 @@ def run():
                 wt=(data.get("water") or {}).get("tex_in") or ""
                 wmat=None
                 if _TEX_OK[0] and wt:
-                    wtex=_import_texture(wt)
-                    if wtex: wmat=_make_water_material(wt, wtex)
-                    else:    unreal.log_warning("  water texture '%s' not in the manifest - re-run "
-                                                "extract_textures.py to pull the waterhw family"%wt)
+                    if (_MANIFEST.get(wt) or _MANIFEST_LC.get(wt.lower())):
+                        wmat=_make_water_material(wt)
+                    else:
+                        unreal.log_warning("  water texture '%s' not in the manifest - re-run "
+                                           "extract_textures.py to pull the waterhw family"%wt)
                 if wmat is not None:
                     try:
                         wsm.set_material(0, wmat)      # same call the main mesh uses; static_materials

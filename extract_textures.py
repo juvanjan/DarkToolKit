@@ -21,31 +21,70 @@
 # Single mission:
 #   py extract_textures.py --game "C:/Games/Thief2" --mis "C:/.../057a33b2-06.mis"
 
-import os, sys, zipfile, struct, json, argparse
+import os, sys, zipfile, struct, json, argparse, math
 
 TEX_EXTS = (".pcx", ".dds", ".png", ".gif", ".tga", ".bmp")
 
 
 _MTL_CACHE = {}
+def _mtl_params(game_root):
+    """stem -> {param: [values]} for every .mtl under game_root (NewDark doc/material-format.txt)."""
+    if not _MTL_CACHE:
+        for root, _, files in os.walk(game_root):
+            for f in files:
+                if not f.lower().endswith(".mtl"): continue
+                d = {}
+                try:
+                    for line in open(os.path.join(root, f), "r", errors="ignore"):
+                        line = line.split(";")[0].strip()
+                        parts = line.split()
+                        if len(parts) >= 2: d[parts[0].lower()] = parts[1:]
+                        elif parts:        d[parts[0].lower()] = []
+                except Exception: pass
+                if d: _MTL_CACHE[os.path.splitext(f)[0].lower()] = d
+        print("  read %d .mtl files" % len(_MTL_CACHE))
+        if not _MTL_CACHE: _MTL_CACHE["__none__"] = {}
+    return _MTL_CACHE
+
 def _terrain_scale(container, member, game_root):
     """Logical texture size from the HD pack's sibling .mtl ("terrain_scale N"), or None.
 
     NewDark texture packs declare the size Dark scales by; it cannot be inferred from the image
     dimensions (bloxwall and BIGBL2 are both 64x64 in fam.crf yet declare 64 and 128)."""
-    if not _MTL_CACHE:
-        for root, _, files in os.walk(game_root):
-            for f in files:
-                if not f.lower().endswith(".mtl"): continue
-                try:
-                    for line in open(os.path.join(root, f), "r", errors="ignore"):
-                        parts = line.strip().split()
-                        if len(parts) >= 2 and parts[0].lower() == "terrain_scale":
-                            _MTL_CACHE[os.path.splitext(f)[0].lower()] = int(parts[1]); break
-                except Exception: pass
-        if _MTL_CACHE: print("  read terrain_scale from %d .mtl files" % len(_MTL_CACHE))
-        else: _MTL_CACHE["__none__"] = 0
-    key = os.path.splitext(os.path.basename(member or container))[0].lower()
-    return _MTL_CACHE.get(key)
+    p = _mtl_params(game_root).get(
+        os.path.splitext(os.path.basename(member or container))[0].lower())
+    if not p or "terrain_scale" not in p: return None
+    try: return int(p["terrain_scale"][0])
+    except Exception: return None
+
+# ---------------------------------------------------------------- animated textures
+# Dark animates a texture by loading sibling files named <base>_1, <base>_2, ... alongside the base
+# (render/anim_txt.c:56 ectsAnimTxtIgnore parses exactly that `_<digits>` suffix). The BASE file is
+# frame 0 and the _N files follow, so `ani_frames 20` means base + _1.._19.
+#
+# From doc/material-format.txt and anim_txt.c:
+#   ani_rate   = MILLISECONDS PER FRAME (not fps), default 250 (DEF_RATE)
+#   ani_frames = frame count; 0 = however many files exist
+#   ani_mode   = WRAP (default, DEF_FLAG) | REVERSE | PINGPONG
+# WRAP advances cur 0..cnt-1 then snaps back to 0 (ectsAnimHitEdge), i.e. a plain forward loop.
+def _anim_info(stem, index, game_root):
+    """(frame_entries, rate_ms, mode) for an animated texture, or None if it isn't animated."""
+    frames = []
+    i = 1
+    while True:
+        c = index.get("%s_%d" % (stem, i))
+        if not c: break
+        frames.append(c[0])
+        i += 1
+    if not frames: return None
+    p = _mtl_params(game_root).get(stem.lower(), {})
+    try: rate = int(p.get("ani_rate", [250])[0])
+    except Exception: rate = 250
+    try: want = int(p.get("ani_frames", [0])[0])
+    except Exception: want = 0
+    mode = " ".join(p.get("ani_mode", ["WRAP"])).upper() or "WRAP"
+    if want > 0: frames = frames[:max(0, want - 1)]        # -1: the base file is frame 0
+    return frames, rate, mode
 
 # ---------------------------------------------------------------- read texture names from a .MIS (TXLIST)
 def read_txlist(path):
@@ -222,7 +261,7 @@ def main():
         if not needed: print("No textures referenced (check --mis path)."); sys.exit(1)
 
     os.makedirs(a.out, exist_ok=True)
-    manifest = {}; missing = []; ok = 0; fallbacks = []; overrides = []
+    manifest = {}; missing = []; ok = 0; fallbacks = []; overrides = []; animated = []
     for key, disp in sorted(needed.items()):
         cands = index.get(key)
         if not cands:
@@ -271,6 +310,35 @@ def main():
                               "size": list(img.size),
                               "scale_px": scale_px,
                               "used_by": sorted(set(usage.get(key, [])))}
+            # Animated? Lay the frames out as a sprite-sheet atlas; UE gets one texture plus a
+            # flipbook material rather than 20 assets. Frame 0 is the BASE image (anim_txt.c).
+            ai = _anim_info(key, index, a.game)
+            if ai:
+                extra, rate, mode = ai
+                try:
+                    imgs = [img.convert("RGBA")]
+                    for e in extra:
+                        fi = load_image(e[0], e[1], e[2]).convert("RGBA")
+                        if fi.size != img.size: fi = fi.resize(img.size)
+                        imgs.append(fi)
+                    n = len(imgs)
+                    cols = int(math.ceil(math.sqrt(n)))
+                    rows = int(math.ceil(n / float(cols)))
+                    fw, fh = img.size
+                    from PIL import Image as _Im
+                    sheet = _Im.new("RGBA", (cols*fw, rows*fh), (0, 0, 0, 0))
+                    for i2, fr in enumerate(imgs):
+                        sheet.paste(fr, ((i2 % cols)*fw, (i2 // cols)*fh))
+                    aname = disp + "_anim.png"
+                    sheet.save(os.path.join(a.out, aname))
+                    manifest[disp]["anim"] = {"atlas": aname, "frames": n, "cols": cols, "rows": rows,
+                                              "rate_ms": rate, "mode": mode,
+                                              "loop_s": round(n*rate/1000.0, 4),
+                                              "frame_size": [fw, fh]}
+                    animated.append("%s: %d frames, %dms/frame (%.2fs loop), %s, atlas %dx%d"
+                                    % (disp, n, rate, n*rate/1000.0, mode, cols, rows))
+                except Exception as e:
+                    print("  ! could not build animation atlas for %s (%s)" % (disp, e))
             ok += 1
         except Exception as e:
             print("  ! failed to convert %s (%s)" % (disp, e)); missing.append(disp)
@@ -283,6 +351,9 @@ def main():
     if overrides:
         print("SCALE OVERRIDE (%d) - HD/loose file used for display, but Dark scale taken from fam.crf size:" % len(overrides))
         for ov in overrides: print("  " + ov)
+    if animated:
+        print("ANIMATED (%d) - frames packed into a sprite-sheet atlas for a UE flipbook:" % len(animated))
+        for an in animated: print("  " + an)
     if fallbacks:
         print("FAMILY FALLBACK (%d) - the mission's family folder wasn't found, used another (may look wrong):" % len(fallbacks))
         for fb in fallbacks: print("  " + fb)

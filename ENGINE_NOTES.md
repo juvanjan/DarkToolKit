@@ -609,3 +609,46 @@ water mesh and pointed at slots it never fills, which rendered it untextured. Ke
 material 0 and the culled ones to material 1, then `delete_triangles_by_material_id(WATER, 1)`
 removes them in one call. Assign with `sm.set_material(0, mat)` -- the same call assign_materials
 uses; `set_editor_property("static_materials", ...)` did not take.
+
+
+## Animated textures (water)
+
+Dark animates a texture by loading sibling files named `<base>_1`, `<base>_2`, ... next to the base.
+`ectsAnimTxtIgnore` (render/anim_txt.c:56) is what parses that `_<digits>` suffix -- it exists to stop
+the frames being loaded as ordinary textures in their own right. The BASE file is frame 0 and the _N
+files follow, so `ani_frames 20` means base + _1.._19 (exactly what MODS/t2water ships).
+
+Parameters come from the .mtl (doc/material-format.txt); only the base/root texture of an animation
+carries one:
+
+    ani_rate    MILLISECONDS PER FRAME, not fps. Default 250 (DEF_RATE in anim_txt.c).
+    ani_frames  frame count; 0 = however many files are found.
+    ani_mode    WRAP (default, DEF_FLAG) | REVERSE | PINGPONG.
+    force_ani_settings 1   these win over DromEd's "Texture Anim Data" property.
+
+Water: `ani_rate 60`, `ani_frames 20` -> a 1.2 s loop at 16.67 fps.
+
+WRAP is a plain forward cycle: `ectsAnimRunSingle` increments cur to cnt-1, then `ectsAnimHitEdge`
+snaps it back to 0. REVERSE/PINGPONG instead bounce by toggling the FLAG_REVERSE bit at each end.
+
+Our implementation: extract_textures.py packs the frames into a sprite-sheet atlas
+(`<name>_anim.png`, 20 frames -> 5x4 of 256x256 = 1280x1024) and records
+`anim {atlas, frames, cols, rows, rate_ms, mode, loop_s, frame_size}` in the manifest. build_in_ue.py
+builds the material with ONE Custom HLSL node mapping elapsed Time into the current frame's cell --
+one node rather than ~15 wired expressions, so there is far less to get wrong. Only WRAP is
+implemented; a non-WRAP mode logs a warning rather than quietly looking wrong.
+
+Two details that matter:
+  * `frac(UV)` inside the node keeps a TILING surface within its frame cell (water tiles many times
+    across a pool). That frac seam would otherwise pick wrong mips, so the atlas is imported with
+    `TMGS_NO_MIPMAPS`.
+  * Atlas row 0 is at the TOP and UE's V=0 is also the top, so the row offset needs no flip.
+
+Verify the frame schedule OFFLINE before building -- render the HLSL with the manifest's numbers and
+step time in ani_rate increments. It must hit frames 0..19 in order and return to 0 at exactly
+loop_s. That caught nothing this time but costs one command.
+
+Animated textures are not water-specific: any face texture with `_N` siblings gets an atlas too
+(blin/blout are applied as ordinary face textures in MISS5_mod2). Only the water material currently
+consumes the atlas -- `_make_water_material`. Wiring the same flipbook into the regular per-face
+material path (`_make_material`) is the obvious follow-up.

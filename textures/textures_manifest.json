@@ -204,7 +204,20 @@
    "used_by": [
     "MISS5_mod2.mis",
     "MISS5_mod2_mini.mis"
-   ]
+   ],
+   "anim": {
+    "atlas": "blin_anim.png",
+    "frames": 20,
+    "cols": 5,
+    "rows": 4,
+    "rate_ms": 60,
+    "mode": "WRAP",
+    "loop_s": 1.2,
+    "frame_size": [
+     256,
+     256
+    ]
+   }
   },
   "blout": {
    "png": "blout.png",
@@ -220,7 +233,20 @@
    "used_by": [
     "MISS5_mod2.mis",
     "MISS5_mod2_mini.mis"
-   ]
+   ],
+   "anim": {
+    "atlas": "blout_anim.png",
+    "frames": 20,
+    "cols": 5,
+    "rows": 4,
+    "rate_ms": 60,
+    "mode": "WRAP",
+    "loop_s": 1.2,
+    "frame_size": [
+     256,
+     256
+    ]
+   }
   },
   "BLOX": {
    "png": "BLOX.png",
@@ -1548,7 +1574,20 @@
     "16.mis",
     "MISS5_mod2.mis",
     "MISS5_mod2_mini.mis"
-   ]
+   ],
+   "anim": {
+    "atlas": "grin_anim.png",
+    "frames": 20,
+    "cols": 5,
+    "rows": 4,
+    "rate_ms": 60,
+    "mode": "WRAP",
+    "loop_s": 1.2,
+    "frame_size": [
+     256,
+     256
+    ]
+   }
   },
   "grout": {
    "png": "grout.png",
@@ -1581,7 +1620,20 @@
     "16.mis",
     "MISS5_mod2.mis",
     "MISS5_mod2_mini.mis"
-   ]
+   ],
+   "anim": {
+    "atlas": "grout_anim.png",
+    "frames": 20,
+    "cols": 5,
+    "rows": 4,
+    "rate_ms": 60,
+    "mode": "WRAP",
+    "loop_s": 1.2,
+    "frame_size": [
+     256,
+     256
+    ]
+   }
   },
   "grst6128": {
    "png": "grst6128.png",

@@ -737,3 +737,57 @@ triangle and assert it encloses the expected medium. Any disagreement means the 
 the media table (the table itself is cross-checked against ged_csg.cpp and an independent voxel
 model), and it names the offending coordinates. Leave it on -- it is how this class of bug becomes
 visible instead of silent.
+
+
+## Partly-exposed faces must be SPLIT at the media boundary, not per-triangle
+
+A per-TRIANGLE keep/drop test is not enough for deciding which water surfaces to draw. Where a face
+is only PARTLY exposed to air, the centroid test hands one whole triangle to air and the other to
+solid, cutting the surface along the triangle DIAGONAL. Dark cuts along the brush boundary -- a
+straight edge -- so the result is visibly wrong: a big diagonal wedge of water.
+
+This is the same failure as the id34 "big triangle" on brush faces. There we could only AVOID it (by
+requiring a face polygon to cover the whole triangle before claiming it); on the water surface we can
+fix it properly, because we own the mesh: clip each triangle by the brush face planes that actually
+cross it, then test each piece. Every media boundary is one of those planes, so after clipping each
+piece lies wholly in one medium and the centroid test is exact.
+
+`clip_surface_to_medium()` does this and returns a NEW surface mesh. Two things that matter:
+  * Prune planes per triangle (skip any whose signed distances do not straddle the triangle), or it
+    is O(water tris x every plane in the mission).
+  * Clipping REBUILDS the mesh, so UVs applied beforehand are lost with the old one -- re-run
+    ensure_uv_normals afterwards or the flipbook samples a constant UV and the water renders as one
+    flat colour.
+
+Worked example (16.mis): id17 `solid->air` spans x[-24,0] y[-28,8], which reaches PAST chamber 3, so
+the water body's x faces meet air for y[0,8] and solid for y[8,20]. The clip splits that face at
+exactly y=8 -- keep y[0,8], cull y[8,20] -- instead of slicing it corner to corner.
+
+Worth re-checking offline after any change: take the water body's face as a quad, run the same plane
+list over it, and confirm the pieces land on brush boundaries with the expected keep/cull verdicts.
+
+
+## A mesh built from MeshBuffers MUST carry uv0 -- missing UVs CRASH the editor
+
+`Assertion failed: NumUVs > 0 [StaticMesh.cpp]` takes the whole editor down; it is not a soft
+failure or a log line. It happens when a DynamicMesh appended via `append_buffers_to_mesh` has no uv0
+channel and is then baked to a StaticMesh.
+
+`ensure_uv_normals(m)` does NOT rescue this. Its projection needs a UV layer to already exist, and it
+swallows the failure, so the mesh reaches bake() with zero UV channels and asserts.
+
+Rule: any `MeshBuffers` you append must set "uv0" alongside "vertices"/"triangles"/"normals", and the
+code should refuse to return a mesh whose uv0 could not be set rather than hand a crash to bake().
+Both mesh builders here do that now -- rebuild_unwelded and clip_surface_to_medium.
+
+Project each polygon from ITS OWN dominant axis, never one axis for the whole mesh: a single planar
+projection leaves every face parallel to that axis edge-on, collapsing it to zero UV area (the
+barcode failure again).
+
+Related ordering trap: clipping REBUILDS the mesh, so UVs written into the buffer would be destroyed
+by a later whole-mesh `ensure_uv_normals(WATER)` with uvs=True. Pass uvs=False once the buffer
+carries its own.
+
+Water tile: `WATER_TILE_CM` = 243.84 (8 ft), matching the waterhw pack's `terrain_scale 128` at Dark
+scale 16 (128 * 2^(16-20) = 8 ft). Water has no brush-face record, so there is no per-face scale to
+read -- unlike terrain, this one is a constant.

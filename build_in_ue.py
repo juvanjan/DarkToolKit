@@ -41,6 +41,9 @@ REBUILD_MATERIALS = True  # WATER material only: delete + recreate instead of re
                           #   materials are still reused. Set False once the graph is settled.
 VALIDATE_MEDIA = True     # audit the built SOLID/WATER volumes against the exact media table and log
                           #   any face that encloses the wrong medium (i.e. the boolean diverged).
+WATER_TILE_CM = 243.84    # one water-texture repeat per this many cm (8 ft). Matches the waterhw
+                          #   pack's `terrain_scale 128` at Dark scale 16: 128 * 2^(16-20) = 8 ft.
+                          #   Water has no brush-face record to read a per-face scale from.
 WATER_PROBE_CM = 4.0      # how far outside a water face to sample the medium when deciding whether
                           #   that face is a water/air surface (drawn) or buried against solid (not).
 PROBE_ID9 = False         # diagnostic: log which of the id9 pit surfaces the boolean produced (16.mis).
@@ -1913,6 +1916,106 @@ def build_media_model(world, body):
         if s: seq.append((b["op"], s))
     return ws, seq
 
+def _split_poly(poly, n, d, eps=0.05):
+    """Split a convex polygon by plane dot(n,p)=d. Returns (below, above); either may be None."""
+    dist=[_dot(n,p)-d for p in poly]
+    if all(x<=eps  for x in dist): return poly, None
+    if all(x>=-eps for x in dist): return None, poly
+    neg=[]; pos=[]; N=len(poly)
+    for i in range(N):
+        a=poly[i]; b=poly[(i+1)%N]; da=dist[i]; db=dist[(i+1)%N]
+        if da<=eps:  neg.append(a)
+        if da>=-eps: pos.append(a)
+        if (da>eps and db<-eps) or (da<-eps and db>eps):
+            t=da/(da-db)
+            p=[a[k]+(b[k]-a[k])*t for k in range(3)]
+            neg.append(p); pos.append(p)
+    return (neg if len(neg)>=3 else None), (pos if len(pos)>=3 else None)
+
+def clip_surface_to_medium(mesh, model, want, probe, maxpieces=96):
+    """Keep only the parts of `mesh`'s surface that face `want`, splitting along media boundaries.
+
+    A per-TRIANGLE keep/drop test is not enough. Where a face is only PARTLY exposed - 16.mis id17
+    (solid->air) reaches past the chamber, so half of the water's x faces meet air and half meet
+    solid - the centroid test hands one whole triangle to air and the other to solid, cutting the
+    surface along the triangle DIAGONAL. Dark cuts along the brush boundary, a straight edge. This is
+    the same failure that produced the id34 "big triangle" on brush faces; there we could only avoid
+    it, here we can fix it properly by subdividing.
+
+    So: clip each triangle by the brush face planes that actually cross it (every media boundary is
+    one of those planes), then test each piece. Returns a new surface mesh, or None."""
+    if GEDIT is None: return None
+    ids=tri_ids(mesh)
+    if not ids: return None
+    ws,seq=model
+    planes=[]; seen=set()
+    for _op,sol in seq:
+        for (n,d) in sol[0]:
+            k=(round(n[0],4),round(n[1],4),round(n[2],4),round(d,2))
+            if k in seen: continue
+            seen.add(k); planes.append((n,d))
+    polys=[]; kept=0; dropped=0; split=0
+    for tid in ids:
+        nr=_tri_normal(mesh,tid)
+        try:
+            r=getattr(GTRIPOS,_TRIPOS)(mesh,tid)
+            vs=[v for v in (r if isinstance(r,(tuple,list)) else [r]) if hasattr(v,"x")]
+        except Exception: continue
+        if nr is None or len(vs)<3: continue
+        tri=[[v.x,v.y,v.z] for v in vs[:3]]
+        nrl=[nr.x,nr.y,nr.z]
+        pieces=[tri]
+        for (n,d) in planes:
+            # Only planes that actually CROSS this triangle can matter; skip the rest outright,
+            # otherwise this is O(tris x every plane in the mission).
+            dd=[_dot(n,p)-d for p in tri]
+            if min(dd)>=-0.05 or max(dd)<=0.05: continue
+            nxt=[]
+            for pc in pieces:
+                a,b=_split_poly(pc,n,d)
+                if a: nxt.append(a)
+                if b: nxt.append(b)
+            pieces=nxt
+            if len(pieces)>maxpieces: break
+        if len(pieces)>1: split+=1
+        for pc in pieces:
+            m=float(len(pc))
+            c=[sum(p[i] for p in pc)/m for i in range(3)]
+            P=[c[i]+nrl[i]*probe for i in range(3)]
+            if medium_at(P,model)==want: polys.append((pc,nrl)); kept+=1
+            else: dropped+=1
+    if not polys:
+        unreal.log("  water surface: nothing faces %s"%_MEDNAME[want]); return None
+    verts=[]; tris=[]; nrm=[]; uvs=[]
+    for pc,nrl in polys:
+        base=len(verts)
+        # UVs MUST be written here. A buffer appended without a uv0 channel leaves the mesh with
+        # NumUVs == 0, and StaticMesh.cpp asserts on that ("Assertion failed: NumUVs > 0") - it takes
+        # the editor down, it is not a soft failure. Projecting from the polygon's own dominant axis
+        # also means no orientation can collapse, unlike a single whole-mesh planar projection.
+        a=[abs(nrl[0]),abs(nrl[1]),abs(nrl[2])]; ax=a.index(max(a))
+        ij=(1,2) if ax==0 else ((0,2) if ax==1 else (0,1))
+        for p in pc:
+            verts.append(tuple(p)); nrm.append(nrl)
+            uvs.append((p[ij[0]]/WATER_TILE_CM, p[ij[1]]/WATER_TILE_CM))
+        for k in range(1,len(pc)-1): tris.append((base,base+k,base+k+1))   # fan
+    m2=new_mesh(); buf=MeshBuffers()
+    buf.set_editor_property("vertices",  [unreal.Vector(*v) for v in verts])
+    buf.set_editor_property("triangles", [unreal.IntVector(*t) for t in tris])
+    ok=[]
+    for prop,val in (("uv0",     [unreal.Vector2D(u,v) for (u,v) in uvs]),
+                     ("normals", [unreal.Vector(*v) for v in nrm])):
+        try: buf.set_editor_property(prop,val); ok.append(prop)
+        except Exception as e: unreal.log_warning("  water surface: could not set %s (%s)"%(prop,e))
+    if "uv0" not in ok:
+        unreal.log_error("  water surface: NO UV CHANNEL could be set - baking this would assert "
+                         "(NumUVs > 0). Keeping the unclipped mesh instead.")
+        return None
+    GEDIT.append_buffers_to_mesh(m2, buf)
+    unreal.log("  water surface: %d polys face %s, %d culled, %d source tris split at a media "
+               "boundary -> %d tris"%(kept,_MEDNAME[want],dropped,split,len(tris)))
+    return m2
+
 def _bb_overlap(a,b):
     return all(a[0][i]<=b[1][i] and b[0][i]<=a[1][i] for i in range(3))
 
@@ -2148,24 +2251,26 @@ def run():
             # lands in solid the wall owns the surface and this face must not be drawn. Keepers get
             # material 0, the rest material 1, then material 1 is deleted wholesale.
             model=build_media_model(world, body)
-            keep=drop=0
-            for t in tri_ids(WATER):
-                nr=_tri_normal(WATER,t); c=_tri_centroid(WATER,t)
-                if nr is None or c is None: _set_matid_tri(WATER,t,0); keep+=1; continue
-                P=[c.x+nr.x*WATER_PROBE_CM, c.y+nr.y*WATER_PROBE_CM, c.z+nr.z*WATER_PROBE_CM]
-                if medium_at(P,model)==AIR: _set_matid_tri(WATER,t,0); keep+=1
-                else:                       _set_matid_tri(WATER,t,1); drop+=1
-            if drop and GMAT_DEL:
-                try:
-                    getattr(GMAT_DEL,_MATDEL)(WATER,1)
-                    unreal.log("  water surface: kept %d tris at water/air, removed %d against solid"
-                               %(keep,drop))
-                except Exception as e:
-                    unreal.log_warning("  could not delete non-air water faces (%s) - the water box "
-                                       "will show its buried sides"%e)
+            clipped=clip_surface_to_medium(WATER, model, AIR, WATER_PROBE_CM)
+            if clipped is not None:
+                WATER=clipped
             else:
-                unreal.log("  water surface: kept %d tris at water/air, removed %d against solid"
-                           %(keep,drop))
+                unreal.log_warning("  water surface clipping unavailable - falling back to a "
+                                   "per-triangle cull (partly-exposed faces will split diagonally)")
+                for t in tri_ids(WATER):
+                    nr=_tri_normal(WATER,t); c=_tri_centroid(WATER,t)
+                    if nr is None or c is None: _set_matid_tri(WATER,t,0); continue
+                    P=[c.x+nr.x*WATER_PROBE_CM, c.y+nr.y*WATER_PROBE_CM, c.z+nr.z*WATER_PROBE_CM]
+                    _set_matid_tri(WATER,t, 0 if medium_at(P,model)==AIR else 1)
+                if GMAT_DEL:
+                    try: getattr(GMAT_DEL,_MATDEL)(WATER,1)
+                    except Exception as e: unreal.log_warning("  cull delete failed (%s)"%e)
+            # Clipping REBUILDS the mesh; it writes its own uv0 (see clip_surface_to_medium), so this
+            # must be normals-only. A whole-mesh projection here would overwrite those per-polygon
+            # UVs with one flattened along a single axis, collapsing every face edge-on to it.
+            ensure_uv_normals(WATER, uvs=(clipped is None))
+            _enable_matids(WATER)
+            for t in tri_ids(WATER): _set_matid_tri(WATER,t,0)
             if tri_count(WATER)==0:
                 unreal.log("No water/air surface in this mission - skipping water mesh."); return
             wpath=ASSET_PATH+"_Water"; wsm=bake(WATER, wpath)

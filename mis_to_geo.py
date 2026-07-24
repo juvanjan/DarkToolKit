@@ -17,7 +17,13 @@ from collections import Counter, defaultdict
 import numpy as np
 
 SCALE   = 30.48
-KEEP_OPS = (0,1,2,3,4,5,8)
+# Terrain media ops (editor/ged_csg.cpp:221 mediaop_names):
+#   0 fill solid  1 fill air  2 fill water  3 flood  4 evaporate
+#   5 solid->water  6 solid->air  7 air->solid  8 water->solid  9 blockable
+# 6 and 7 used to be missing here, so those brushes were dropped at export and did nothing at all.
+# 9 (blockable) is deliberately excluded: its media_op row only changes the PERSIST flags
+# (SOLID->SOLID, AIR->AIR_PERSIST, WATER->WATER_PERSIST), so it makes no difference to shape.
+KEEP_OPS = (0,1,2,3,4,5,6,7,8)
 
 def Rz(a): c,s=math.cos(a),math.sin(a); return np.array([[c,-s,0],[s,c,0],[0,0,1]])
 def Ry(a): c,s=math.cos(a),math.sin(a); return np.array([[c,0,s],[0,1,0],[-s,0,c]])

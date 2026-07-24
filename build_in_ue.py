@@ -39,6 +39,8 @@ REBUILD_MATERIALS = True  # WATER material only: delete + recreate instead of re
                           #   until the old asset goes - a stale static M_grin is exactly why the
                           #   flipbook did not appear. Cheap here (one asset); the ~170 per-face
                           #   materials are still reused. Set False once the graph is settled.
+VALIDATE_MEDIA = True     # audit the built SOLID/WATER volumes against the exact media table and log
+                          #   any face that encloses the wrong medium (i.e. the boolean diverged).
 WATER_PROBE_CM = 4.0      # how far outside a water face to sample the medium when deciding whether
                           #   that face is a water/air surface (drawn) or buried against solid (not).
 PROBE_ID9 = False         # diagnostic: log which of the id9 pit surfaces the boolean produced (16.mis).
@@ -1861,11 +1863,18 @@ def spawn(sm, label):
 # We can answer "what medium is at point P" exactly, the same way DromEd does: replay the media ops
 # in brush order. Every Dark primitive is CONVEX, so "P is inside brush b" is just a plane test.
 SOLID,AIR,WATER_M = 0,1,2
-MEDIA_T = {0:{SOLID:SOLID, AIR:SOLID, WATER_M:SOLID},   # 0 fill solid
-           1:{SOLID:AIR,   AIR:AIR,   WATER_M:AIR},     # 1 fill air
-           2:{SOLID:WATER_M,AIR:WATER_M,WATER_M:WATER_M},# 2 fill water
-           3:{SOLID:SOLID, AIR:WATER_M,WATER_M:WATER_M},# 3 flood  (only fills existing air)
-           4:{SOLID:SOLID, AIR:AIR,   WATER_M:AIR}}     # 4 evaporate
+# media_op[] verbatim from editor/ged_csg.cpp:235, collapsed onto the three base media (the PERSIST
+# variants differ only in whether a later brush can override them, which does not change shape).
+MEDIA_T = {0:{SOLID:SOLID,  AIR:SOLID,  WATER_M:SOLID},   # 0 fill solid
+           1:{SOLID:AIR,    AIR:AIR,    WATER_M:AIR},     # 1 fill air
+           2:{SOLID:WATER_M,AIR:WATER_M,WATER_M:WATER_M}, # 2 fill water
+           3:{SOLID:SOLID,  AIR:WATER_M,WATER_M:WATER_M}, # 3 flood      (only fills existing air)
+           4:{SOLID:SOLID,  AIR:AIR,    WATER_M:AIR},     # 4 evaporate
+           5:{SOLID:WATER_M,AIR:AIR,    WATER_M:WATER_M}, # 5 solid->water
+           6:{SOLID:AIR,    AIR:AIR,    WATER_M:WATER_M}, # 6 solid->air
+           7:{SOLID:SOLID,  AIR:SOLID,  WATER_M:WATER_M}, # 7 air->solid
+           8:{SOLID:SOLID,  AIR:AIR,    WATER_M:SOLID},   # 8 water->solid
+           9:{SOLID:SOLID,  AIR:AIR,    WATER_M:WATER_M}} # 9 blockable  (persist flags only)
 
 def _brush_solid(b):
     """(planes, bbox) for a convex brush. Planes are outward-facing: dot(n,P) <= d means inside."""
@@ -1903,6 +1912,72 @@ def build_media_model(world, body):
         s=_brush_solid(b)
         if s: seq.append((b["op"], s))
     return ws, seq
+
+def _bb_overlap(a,b):
+    return all(a[0][i]<=b[1][i] and b[0][i]<=a[1][i] for i in range(3))
+
+def media_present(sol, want, ws, prior, grid=5):
+    """Does any medium in `want` exist inside this brush, given only the brushes BEFORE it?
+
+    WHY THIS EXISTS: GeometryScript treats an EMPTY boolean result as a FAILURE and leaves the target
+    mesh unchanged. For ops that build an intermediate - t = B & SOLID (op5), t = B & WATER (op8),
+    t = B - SOLID (op3), t = B - WATER (op7) - a failed intersect leaves t as the WHOLE BRUSH, and
+    the following union then merges the entire brush into WATER or SOLID. That is how a second,
+    redundant solid->water brush turned AIR into water: the first one had already consumed all the
+    solid, so the second one's intersect came back empty and flooded everything.
+    (A plain SUBTRACT/UNION straight into the accumulator is safe - there, "unchanged" is the correct
+    outcome when the brush does not overlap, which is exactly what a failure leaves behind.)
+
+    Sampling a grid inside the convex brush is enough to answer "is there any of medium X here",
+    which is all the guard needs; the boolean still does the exact geometry when the answer is yes.
+    A medium present only as a sliver thinner than the sample spacing could be missed, in which case
+    we skip an op that would have changed almost nothing - far better than flooding the brush."""
+    planes,bb=sol
+    lo,hi=bb
+    pts=[]
+    for i in range(grid):
+        for j in range(grid):
+            for k in range(grid):
+                f=[(n+0.5)/grid for n in (i,j,k)]
+                P=[lo[d]+(hi[d]-lo[d])*f[d] for d in range(3)]
+                if _inside_solid(P,sol): pts.append(P)
+    for P in pts:
+        m = SOLID if (ws and _inside_solid(P,ws)) else AIR
+        for op2,s2 in prior:
+            if _inside_solid(P,s2): m=MEDIA_T[op2][m]
+        if m in want: return True
+    return False
+
+_MEDNAME={SOLID:"SOLID", AIR:"AIR", WATER_M:"WATER"}
+def validate_volume(mesh, label, want, model, eps=4.0, limit=8):
+    """Audit a built volume against the EXACT media model.
+
+    Sample just INSIDE each boundary triangle (centroid - eps*outward normal); that point must be
+    `want`. medium_at replays the media ops the way DromEd does and was cross-checked against an
+    independent voxel model, so any disagreement here is the mesh BOOLEAN diverging from the media
+    table, not the table being wrong. Reports where, so the offending op can be identified."""
+    ids=tri_ids(mesh)
+    if not ids: return
+    bad=0; tot=0; seen={}; samples=[]
+    for t in ids:
+        nr=_tri_normal(mesh,t); c=_tri_centroid(mesh,t)
+        if nr is None or c is None: continue
+        P=[c.x-nr.x*eps, c.y-nr.y*eps, c.z-nr.z*eps]
+        tot+=1
+        m=medium_at(P,model)
+        if m!=want:
+            bad+=1; seen[m]=seen.get(m,0)+1
+            if len(samples)<limit:
+                samples.append((round(P[0]/30.48,1),round(P[1]/30.48,1),round(P[2]/30.48,1),m))
+    if not bad:
+        unreal.log("  volume check %s: all %d boundary tris enclose %s - matches the media table"
+                   %(label,tot,_MEDNAME[want]))
+        return
+    unreal.log_error("  volume check %s: %d/%d boundary tris enclose the WRONG medium (%s)"
+                     %(label,bad,tot,", ".join("%s x%d"%(_MEDNAME[k],v) for k,v in sorted(seen.items()))))
+    for x,y,z,m in samples:
+        unreal.log_error("     at (%g,%g,%g)ft the mesh says %s but the media table says %s"
+                         %(x,y,z,_MEDNAME[want],_MEDNAME[m]))
 
 def medium_at(P, model):
     """Final medium at P: SOLID / AIR / WATER_M. Outside the world block everything is AIR."""
@@ -1944,6 +2019,29 @@ def run():
         # No-op while WATER is still empty: subtracting from / unioning into an empty mesh makes the
         # engine log "Boolean operation failed due to an empty result" for every single brush.
         if tri_count(WATER)>0 or op==UNION: BOP(WATER,tool,op)
+    def MINUS_W(t):
+        # t -= WATER, skipped while WATER is empty (same empty-tool trap as WOP).
+        if tri_count(WATER)>0: BOP(t,WATER,SUBTRACT)
+        return t
+    # Convex descriptions for the guard below: which media a brush needs to find inside itself for
+    # its intermediate boolean to be meaningful (see media_present).
+    _WS=_brush_solid(world) if BUILD_WORLD_BOX else None
+    _SOLS=[( b.get("op"), _brush_solid(b) ) for b in body]
+    NEEDS={3:(AIR,WATER_M), 5:(SOLID,), 7:(SOLID,AIR), 8:(WATER_M,)}
+    _skipped=[0]
+    def guarded(i,b,op):
+        """False -> the source medium this op consumes is not present, so skip it entirely."""
+        need=NEEDS.get(op)
+        if need is None: return True
+        me=_SOLS[i][1]
+        if me is None: return True
+        prior=[(o,s) for (o,s) in _SOLS[:i] if s is not None and _bb_overlap(s[1],me[1])]
+        if media_present(me,need,_WS,prior): return True
+        _skipped[0]+=1
+        unreal.log_warning("  brush id%s op%d: no %s inside it at this point - SKIPPED. (Running the "
+                           "boolean anyway would leave the intermediate as the whole brush and flood "
+                           "it.)"%(b.get("id"),op,"/".join(_MEDNAME[m] for m in need)))
+        return False
     n=len(body)
     for i,b in enumerate(body,1):
         op=b["op"]
@@ -1951,16 +2049,38 @@ def run():
             if   op==0:  BOP(result,mk(b,grow_xy=FILL_UNION_GROW_CM),UNION);    WOP(mk(b),SUBTRACT)
             elif op==1:  BOP(result,mk(b),SUBTRACT); WOP(mk(b),SUBTRACT)
             elif op==2:  BOP(result,mk(b),SUBTRACT); WOP(mk(b),UNION)
-            elif op==3:  t=mk(b); BOP(t,result,SUBTRACT); BOP(WATER,t,UNION)
+            elif op==3:
+                if guarded(i-1,b,op): t=mk(b); BOP(t,result,SUBTRACT); BOP(WATER,t,UNION)
             elif op==4:  WOP(mk(b),SUBTRACT)
-            elif op==5:  t=mk(b); BOP(t,result,INTERSECT); BOP(WATER,t,UNION); BOP(result,mk(b),SUBTRACT)
-            elif op==8:  t=mk(b,grow_xy=FILL_UNION_GROW_CM); BOP(t,WATER,INTERSECT); BOP(result,t,UNION); WOP(mk(b),SUBTRACT)
+            elif op==5:
+                # solid->water. SOLID -= B happens either way (S->W removes it from solid); only the
+                # WATER gain is conditional on there actually being solid to convert.
+                if guarded(i-1,b,op):
+                    t=mk(b); BOP(t,result,INTERSECT); BOP(WATER,t,UNION)
+                BOP(result,mk(b),SUBTRACT)
+            # solid->air {S:A, A:A, W:W}: carve the solid but LEAVE WATER ALONE. That water clause is
+            # the entire difference from `fill air` (op 1), which also subtracts from WATER.
+            elif op==6:  BOP(result,mk(b),SUBTRACT)
+            # air->solid {S:S, A:S, W:W}: fill everything in the brush that is not already water.
+            elif op==7:
+                if guarded(i-1,b,op):
+                    t=MINUS_W(mk(b,grow_xy=FILL_UNION_GROW_CM)); BOP(result,t,UNION)
+            # water->solid {S:S, A:A, W:S}: only the WATER inside the brush turns solid.
+            elif op==8:
+                # WATER -= B is unconditional (W->S removes it from water); the SOLID gain is not.
+                if guarded(i-1,b,op):
+                    t=mk(b,grow_xy=FILL_UNION_GROW_CM); BOP(t,WATER,INTERSECT); BOP(result,t,UNION)
+                WOP(mk(b),SUBTRACT)
         except Exception as e:
             fails[0]+=1
             if first_err[0] is None: first_err[0]=str(e)
         if i%250==0: unreal.log("  ...%d/%d  result tris=%s"%(i,n,tri_count(result)))
     unreal.log("Done carving: result tris=%s  WATER tris=%s  boolean failures=%d"%(
         tri_count(result),tri_count(WATER),fails[0]))
+    if VALIDATE_MEDIA:
+        _model=build_media_model(world, body)
+        validate_volume(result,"SOLID",SOLID,_model)
+        if tri_count(WATER)>0: validate_volume(WATER,"WATER",WATER_M,_model)
     if first_err[0]: unreal.log_error("First boolean error: %s"%first_err[0])
 
     # normals only: a whole-mesh UV projection here would overwrite every per-face projection we just

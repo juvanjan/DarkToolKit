@@ -652,3 +652,88 @@ Animated textures are not water-specific: any face texture with `_N` siblings ge
 (blin/blout are applied as ordinary face textures in MISS5_mod2). Only the water material currently
 consumes the atlas -- `_make_water_material`. Wiring the same flipbook into the regular per-face
 material path (`_make_material`) is the obvious follow-up.
+
+
+## The complete media op table
+
+`mediaop_names` (editor/ged_csg.cpp:221) and `media_op[]` (:235). MediaOp is `uchar[MAX_MEDIA]`
+mapping CURRENT medium -> NEW medium; MAX_MEDIA is 6 because SOLID/AIR/WATER each have a _PERSIST
+variant (media.h:11), but persistence only controls whether a later brush may override the cell, so
+it makes no difference to shape and we collapse onto the three base media.
+
+  op  name           S->  A->  W->    set ops on the SOLID mesh (`result`) and the WATER mesh
+  --  -------------  ---  ---  ---    -------------------------------------------------------
+  0   fill solid      S    S    S     SOLID |= B ; WATER -= B
+  1   fill air        A    A    A     SOLID -= B ; WATER -= B
+  2   fill water      W    W    W     SOLID -= B ; WATER |= B
+  3   flood           S    W    W     t = B - SOLID ; WATER |= t
+  4   evaporate       S    A    A     WATER -= B
+  5   solid->water    W    A    W     t = B & SOLID ; WATER |= t ; SOLID -= B
+  6   solid->air      A    A    W     SOLID -= B                       <- water untouched
+  7   air->solid      S    S    W     t = B - WATER ; SOLID |= t       <- water untouched
+  8   water->solid    S    A    S     t = B & WATER ; SOLID |= t ; WATER -= B
+  9   blockable       S    A    W     nothing (persist flags only)
+
+Ops 6 and 7 were missing from KEEP_OPS, so those brushes were dropped at export and did nothing at
+all -- no warning, the brush simply had no effect. Op 9 is still excluded on purpose: its row is the
+identity on the base media.
+
+The distinction that is easy to miss: `solid->air` (6) is NOT the same as `fill air` (1). Both clear
+solid, but fill air also clears WATER while solid->air leaves water alone. Likewise `air->solid` (7)
+is not `fill solid` (0): fill solid overwrites water too, air->solid does not.
+
+Note op 8 is `water->solid`, not `air->solid` -- an earlier comment in this file had them swapped
+even though the implementation was right.
+
+Derive-then-check, rather than hand-writing the boolean sequences: for a transition table T and
+brush region B,
+    SOLID' = (SOLID - B) | union of {X&B : T[X]=SOLID}
+    WATER' = (WATER - B) | union of {X&B : T[X]=WATER}
+Two offline checks are worth re-running after ANY change here, both cheap:
+  1. MEDIA_T in build_in_ue.py vs the table transcribed from ged_csg.cpp -- must be 0 mismatches.
+  2. Simulate the CSG branches on a 6-cell grid holding all three media, with B covering one cell of
+     each, and compare against the table. Also assert SOLID and WATER never overlap.
+
+16.mis is the test bench: four chambers, each with a fill, then a later op applied to the +Y half
+only, so both halves are visible side by side (evaporate / water->solid / solid->water / solid->air).
+
+
+## An empty boolean result is a FAILURE that leaves the target unchanged
+
+This is the single most dangerous property of GeometryScript's boolean for the media CSG, and it bit
+us as "solid->water also turned AIR into water".
+
+`apply_mesh_boolean` logs "Boolean operation failed due to an empty result" and leaves the TARGET
+MESH UNTOUCHED. Whether that is harmless or catastrophic depends on what the target is:
+
+  * SAFE - a SUBTRACT/UNION applied straight to the accumulator (`result` or WATER). If the brush
+    does not overlap, "unchanged" is precisely the correct outcome.
+  * CATASTROPHIC - building an intermediate. Ops 3/5/7/8 compute
+        op3 t = B - SOLID      op5 t = B & SOLID      op7 t = B - WATER      op8 t = B & WATER
+    and then merge t into an accumulator. When that intersect/subtract comes back empty, `t` is still
+    THE WHOLE BRUSH, so the merge floods the entire brush volume into WATER or SOLID.
+
+16.mis has two identical solid->water brushes (id14, id15). id14 correctly converted the solid; id15
+then found no solid left, its INTERSECT failed, and `WATER |= t` unioned the whole brush -- including
+the air above the fill -- into the water volume. Exactly the reported symptom, and it would equally
+affect a second flood, a water->solid over already-solid ground, etc.
+
+Guard: `media_present()` asks the exact media model whether any of the media the op CONSUMES exists
+inside the brush, replaying only the brushes BEFORE it (bbox-pruned, so it stays cheap on large
+missions). If not, the op is skipped entirely -- which is also what the media table says should
+happen, since with no source medium present the row is the identity. NEEDS = {3: AIR/WATER,
+5: SOLID, 7: SOLID/AIR, 8: WATER}.
+
+Note which half of each op is conditional: op5 always does SOLID -= B (S->W removes it from solid
+regardless), and op8 always does WATER -= B; only the gain side is guarded.
+
+The guard samples a grid inside the convex brush. A medium present only as a sliver thinner than the
+sample spacing could be missed, in which case we skip an op that would have changed almost nothing --
+far better than flooding the brush. The boolean still does the exact geometry whenever the answer is
+yes; sampling only ever decides go/no-go.
+
+`VALIDATE_MEDIA` audits both finished volumes against the model: sample just inside each boundary
+triangle and assert it encloses the expected medium. Any disagreement means the BOOLEAN diverged from
+the media table (the table itself is cross-checked against ged_csg.cpp and an independent voxel
+model), and it names the offending coordinates. Leave it on -- it is how this class of bug becomes
+visible instead of silent.

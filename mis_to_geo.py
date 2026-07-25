@@ -54,11 +54,23 @@ def cyl_local(h,sides,face_align=False):    # n-gon prism
     ring=ngon_base(n, face_align)
     top=[(x*hx,y*hy, hz) for (x,y) in ring]
     bot=[(x*hx,y*hy,-hz) for (x,y) in ring]
-    V=top+bot; T=[]
-    for k in range(1,n-1): T.append((0,k,k+1)); T.append((n,n+k+1,n+k))
+    V=top+bot; T=[]; tslot=[]
+    # Emit an EXPLICIT record slot per triangle, exactly as pyr_local/dodec_local do. Cylinder sides
+    # were the last shape still inferring their slot from the face-normal azimuth (_cyl_slot), which
+    # needed the CYL_SLOT_PHASE_FRAC constant. Verified against DromEd (even cylinders, which were
+    # correct): the mapping is simply SIDE k -> RECORD slot k. The azimuth path reproduced that for
+    # even n but, on ODD side counts, the atan2 rounding tipped ONE facet across a boundary and gave
+    # it slot k-1 (n=15, n=11 came out with a facet's texture in the wrong place; n=13 happened to
+    # land right). Emitting the slot directly removes the rounding entirely. top cap = slot n (+Z),
+    # bottom cap = slot n+1 (-Z).
+    for k in range(1,n-1):
+        T.append((0,k,k+1));      tslot.append(n)      # +Z cap fan
+        T.append((n,n+k+1,n+k));  tslot.append(n+1)    # -Z cap fan
     for k in range(n):
-        a,b=k,(k+1)%n; T.append((a,b,n+b)); T.append((a,n+b,n+a))
-    return V,T
+        a,b=k,(k+1)%n
+        T.append((a,b,n+b));  tslot.append(k)
+        T.append((a,n+b,n+a)); tslot.append(k)
+    return V,T,tslot
 
 def ngon_base(n, face_align=False):
     """Dark's build_ngon_base (primshap.c:182), unit ring in the XY plane:
@@ -180,7 +192,7 @@ def classify_primal(pid, nf):
 
 def bake(b):
     h=b["half"]
-    if   b["shape"]=="cylinder": V,T=cyl_local(h,b["sides"],b.get("falign",False))
+    if   b["shape"]=="cylinder": V,T,_=cyl_local(h,b["sides"],b.get("falign",False))
     elif b["shape"]=="wedge":    V,T=wedge_local(h)
     elif b["shape"] in ("pyramid","cornerpyr"):
         V,T,_=pyr_local(h,b["sides"],b["shape"]=="cornerpyr",b.get("falign",False))
@@ -272,7 +284,7 @@ def faces_for(b, names):
     """Return [{n:[ux,uy,uz], tex:name|None}] - one per distinct face, in UE space."""
     h=b["half"]
     tslot=None
-    if   b["shape"]=="cylinder": V,T=cyl_local(h,b["sides"],b.get("falign",False))
+    if   b["shape"]=="cylinder": V,T,tslot=cyl_local(h,b["sides"],b.get("falign",False))
     elif b["shape"]=="wedge":    V,T=wedge_local(h)
     elif b["shape"] in ("pyramid","cornerpyr"):
         V,T,tslot=pyr_local(h,b["sides"],b["shape"]=="cornerpyr",b.get("falign",False))
@@ -323,7 +335,8 @@ def faces_for(b, names):
     for nl,vidx,gslot in groups.values():
         cap=0; pyrside=0; dodside=0
         if b["shape"]=="cylinder":
-            slot=_cyl_slot(nl, nsides); cap=1 if slot>=nsides else 0   # cap faces need a 180 in UE
+            slot=gslot if gslot is not None else _cyl_slot(nl, nsides)  # explicit slot; azimuth only as fallback
+            cap=1 if slot>=nsides else 0                                # cap faces need a 180 in UE
         elif ispyr:
             slot=gslot                                  # exact, straight from pyr_local
             if slot>=nsides: cap=1                      # the -Z base is a world-horizontal cap

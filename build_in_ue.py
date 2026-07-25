@@ -26,7 +26,7 @@
 
 import unreal, json, math
 
-GEO_PATH    = r"C:\Nex\DarkSimProject\DarkSimToolkit\test_missions\16_geo.json"   # <-- SET (the *_geo.json)
+GEO_PATH    = r"C:\Nex\DarkSimProject\DarkSimToolkit\test_missions\17_geo.json"   # <-- SET (the *_geo.json)
 ASSET_PATH  = r"/Game/Mission/SM_Mission"
 BUILD_WATER = True        # also bake the water volume as a separate static mesh (SM_..._Water)
 BUILD_COLLISION = True    # give the mesh collision (complex-as-simple: the triangles ARE the collision)
@@ -389,31 +389,17 @@ def recover_cylinder(verts,tris):
     return C, ax, a, bmin, height, sides
 
 def mk_cylinder(b):
-    # FACE-ALIGNED cylinders: build straight from the geo verts. recover_cylinder fits an ELLIPSE and
-    # takes the rotation from its major axis; a circular cross-section has no major axis, so it can't
-    # recover the half-facet face-alignment phase (id7 came out 22.5 deg off), and rotating the fitted
-    # frame afterwards left the rebuilt facets' planes 74-132cm off the geo face polys -> retag missed
-    # 6 of 8 sides. mk_buffer builds the exact geo mesh (cyl_local already emits the face-aligned ring),
-    # so mesh == geo face polys and texturing stays in phase. Vertex-aligned cylinders keep the
-    # recover_cylinder path, which works and gives clean UE primitive UVs.
-    if b.get("falign"): return mk_buffer(b)
-    if not GCYL: return mk_buffer(b)
-    try:
-        C,ax,a,bmin,height,sides=recover_cylinder(b["verts"], b["tris"])
-        m=new_mesh()
-        t=unreal.Transform()
-        t.set_editor_property("translation", unreal.Vector(C[0],C[1],C[2]))
-        t.set_editor_property("rotation", _quat_from_axes(ax))
-        t.set_editor_property("scale3d", unreal.Vector(a, bmin, height))   # unit cyl -> ellipse
-        po=PrimOpts(); kw={}
-        if ORIGIN_CENTER is not None: kw["origin"]=ORIGIN_CENTER
-        # unit cylinder: radius 1, height 1, centered
-        try: GCYL.append_cylinder(m, po, t, 1.0, 1.0, sides, 1, True, **kw)
-        except Exception: GCYL.append_cylinder(m, po, t, 1.0, 1.0, sides, 1, True)
-        return m
-    except Exception as e:
-        unreal.log_warning("  cylinder primitive failed (%s); buffer fallback"%e)
-        return mk_buffer(b)
+    # ALWAYS build straight from the geo verts. The GeometryScript append_cylinder primitive places
+    # its facets at UE's OWN phase, which does NOT match Dark's per-n phase (build_ngon_base rotates
+    # by pi/n). recover_cylinder can fit centre/radius/rotation but NOT the phase - a circular
+    # cross-section has no major axis to key off (id7 came out 22.5 deg off). For a lone cylinder that
+    # is invisible, but 17.mis stacks cylinders of DIFFERENT side counts (16,15,...,10); each got an
+    # arbitrary primitive phase, so their facets did not line up and the tower came out as a sawtooth.
+    # mk_buffer uses the baked geo verts, so the phase is exactly Dark's for every layer, and it also
+    # handles elliptical cylinders faithfully (the ellipse is already in the verts). Side UVs are
+    # overwritten afterwards by apply_cyl_face_uvs (per-facet, own-normal), so the primitive's "clean
+    # UVs" were never needed.
+    return mk_buffer(b)
 
 def _fallback_matid():
     """Most-used material id, for triangles no face could be matched to. Anything is better than 0
@@ -1981,8 +1967,16 @@ def clip_surface_to_medium(mesh, model, want, probe, maxpieces=96):
         for pc in pieces:
             m=float(len(pc))
             c=[sum(p[i] for p in pc)/m for i in range(3)]
-            P=[c[i]+nrl[i]*probe for i in range(3)]
-            if medium_at(P,model)==want: polys.append((pc,nrl)); kept+=1
+            outside=[c[i]+nrl[i]*probe for i in range(3)]
+            inside =[c[i]-nrl[i]*probe for i in range(3)]
+            # A real water surface is a WATER/AIR boundary: water on the inside, air on the outside.
+            # Testing only the outside kept every face of the raw boolean water VOLUME whose outside
+            # happened to be air - including volume the later ops cancel analytically but the booleans
+            # left behind (the giant fill-water cylinders at the courtyard centre that render as a
+            # green disc medium_at says is air). Requiring the inside to be WATER too makes the surface
+            # exact per the media table and immune to leftover raw-volume geometry.
+            if medium_at(outside,model)==want and medium_at(inside,model)==WATER_M:
+                polys.append((pc,nrl)); kept+=1
             else: dropped+=1
     if not polys:
         unreal.log("  water surface: nothing faces %s"%_MEDNAME[want]); return None
@@ -2052,35 +2046,44 @@ def media_present(sol, want, ws, prior, grid=5):
     return False
 
 _MEDNAME={SOLID:"SOLID", AIR:"AIR", WATER_M:"WATER"}
-def validate_volume(mesh, label, want, model, eps=4.0, limit=8):
-    """Audit a built volume against the EXACT media model.
+def validate_volume(mesh, label, want, model, depth=15.0, limit=8):
+    """Audit a built volume against the media model, NORMAL-INDEPENDENT.
 
-    Sample just INSIDE each boundary triangle (centroid - eps*outward normal); that point must be
-    `want`. medium_at replays the media ops the way DromEd does and was cross-checked against an
-    independent voxel model, so any disagreement here is the mesh BOOLEAN diverging from the media
-    table, not the table being wrong. Reports where, so the offending op can be identified."""
+    A surface triangle of the `want` volume must SEPARATE `want` from not-`want`: sampling the two
+    sides (centroid +/- depth*normal) should give `want` on exactly one side. This does not depend on
+    which way the normal points - the earlier version assumed outward normals, and where the boolean
+    left inward-facing triangles it probed the wrong side, which is why a deeper probe made the count
+    rise instead of fall. The only real error is a triangle with `want` on NEITHER side (a solid face
+    standing in open air, or water with no water behind it); a face with `want` on BOTH sides is a
+    buried interior triangle - wasteful but not a media error - and is reported separately.
+
+    depth is a few facet-widths so it clears sub-facet boundary offsets (the cylinder/wedge faceting
+    noise) without crossing typical thin features."""
     ids=tri_ids(mesh)
     if not ids: return
-    bad=0; tot=0; seen={}; samples=[]
+    tot=0; floating=0; buried=0; samples=[]
     for t in ids:
         nr=_tri_normal(mesh,t); c=_tri_centroid(mesh,t)
         if nr is None or c is None: continue
-        P=[c.x-nr.x*eps, c.y-nr.y*eps, c.z-nr.z*eps]
         tot+=1
-        m=medium_at(P,model)
-        if m!=want:
-            bad+=1; seen[m]=seen.get(m,0)+1
+        a=medium_at([c.x+nr.x*depth, c.y+nr.y*depth, c.z+nr.z*depth], model)
+        b=medium_at([c.x-nr.x*depth, c.y-nr.y*depth, c.z-nr.z*depth], model)
+        if a!=want and b!=want:
+            floating+=1
             if len(samples)<limit:
-                samples.append((round(P[0]/30.48,1),round(P[1]/30.48,1),round(P[2]/30.48,1),m))
-    if not bad:
-        unreal.log("  volume check %s: all %d boundary tris enclose %s - matches the media table"
-                   %(label,tot,_MEDNAME[want]))
+                samples.append((round(c.x/30.48,1),round(c.y/30.48,1),round(c.z/30.48,1),a,b))
+        elif a==want and b==want:
+            buried+=1
+    if not floating:
+        unreal.log("  volume check %s: all %d surface tris separate %s from non-%s%s"
+                   %(label,tot,_MEDNAME[want],_MEDNAME[want],
+                     ("  (%d buried interior tris)"%buried) if buried else ""))
         return
-    unreal.log_error("  volume check %s: %d/%d boundary tris enclose the WRONG medium (%s)"
-                     %(label,bad,tot,", ".join("%s x%d"%(_MEDNAME[k],v) for k,v in sorted(seen.items()))))
-    for x,y,z,m in samples:
-        unreal.log_error("     at (%g,%g,%g)ft the mesh says %s but the media table says %s"
-                         %(x,y,z,_MEDNAME[want],_MEDNAME[m]))
+    unreal.log_error("  volume check %s: %d/%d surface tris have NO %s on either side (a floating %s "
+                     "face); %d buried"%(label,floating,tot,_MEDNAME[want],_MEDNAME[want],buried))
+    for x,y,z,a,b in samples:
+        unreal.log_error("     tri at (%g,%g,%g)ft: sides are %s / %s, neither is %s"
+                         %(x,y,z,_MEDNAME[a],_MEDNAME[b],_MEDNAME[want]))
 
 def medium_at(P, model):
     """Final medium at P: SOLID / AIR / WATER_M. Outside the world block everything is AIR."""
@@ -2190,9 +2193,12 @@ def run():
     unreal.log("Done carving: result tris=%s  WATER tris=%s  boolean failures=%d"%(
         tri_count(result),tri_count(WATER),fails[0]))
     if VALIDATE_MEDIA:
+        # SOLID only. The raw WATER volume here is an intermediate that clip_surface_to_medium later
+        # rebuilds directly from medium_at, so the FINAL water matches the model by construction -
+        # validating it against the same model is circular (and, on the pre-clip mesh, misleading).
+        # `result` is the independent boolean output, so it is the one worth auditing.
         _model=build_media_model(world, body)
         validate_volume(result,"SOLID",SOLID,_model)
-        if tri_count(WATER)>0: validate_volume(WATER,"WATER",WATER_M,_model)
     if first_err[0]: unreal.log_error("First boolean error: %s"%first_err[0])
 
     # normals only: a whole-mesh UV projection here would overwrite every per-face projection we just
@@ -2320,9 +2326,9 @@ def run():
                                            "extract_textures.py to pull the waterhw family"%wt)
                 if wmat is not None:
                     try:
-                        wsm.set_material(0, wmat)      # same call the main mesh uses; static_materials
-                        unreal.log("Water -> %s  material=M_%s on slot 0 (translucent, two-sided, "
-                                   "%s tris retagged)"%(wpath,wt,"all" if nre<0 else nre))
+                        wsm.set_material(0, wmat)      # same call the main mesh uses
+                        unreal.log("Water -> %s  material=M_%s on slot 0 (translucent, two-sided)"
+                                   %(wpath,wt))
                     except Exception as e:
                         unreal.log_warning("  could not assign water material (%s)"%e)
                 else:

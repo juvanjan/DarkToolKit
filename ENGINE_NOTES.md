@@ -821,3 +821,82 @@ into an ordinary solid fill, filling the level in.
 
 The world box now has time=-1 AND an explicit `world: true` flag, and the builder selects it by that
 flag (falling back to B[0] for older geo). Never identify the world brush positionally.
+
+
+## The water SURFACE must be a model water/air boundary, not just "air outside"
+
+Symptom: a green water disc filled the courtyard centre of MISS1_mod where DromEd shows dry floor.
+
+check_media at the centre (0,0,z) ends in SOLID/AIR: giant fill-water cylinders (id52-57) are
+cancelled by later water->solid + fill-air + flood + evaporate. So the MODEL has no water there. But
+the raw boolean WATER volume still had that water - the ops cancel analytically, yet the accumulated
+booleans did not fully undo the union. clip_surface_to_medium kept any face whose OUTSIDE sampled AIR,
+so the leftover volume's top surface (air above) was kept and rendered.
+
+Fix: a real water surface is a WATER/AIR boundary. Keep a clipped face only if the OUTSIDE is AIR AND
+the INSIDE is WATER, both per medium_at. This makes the water surface exact per the media table and
+IMMUNE to leftover raw-volume geometry - the raw water mesh is now used only for triangle POSITIONS;
+the model decides what survives. Verified offline: courtyard centre rejected (no boundary), genuine
+pools like id1753 (-11,83,14) kept. It also shrinks the output massively (the 300k-tri / 571MB water
+mesh and its degenerate-tangent warnings were mostly leftover volume).
+
+General principle for anything derived from the boolean meshes: trust the analytic medium model for
+WHAT should exist, and use the boolean geometry only for WHERE the triangles are.
+
+## validate_volume must be NORMAL-INDEPENDENT
+
+First version sampled `centroid - outward_normal*eps` and expected `want` - it assumed outward
+normals. Where the boolean left inward-facing triangles it probed the wrong side, so a DEEPER probe
+made the wrong-count RISE (7088 at 4cm -> 12425 at 40cm) instead of fall. That is the signature of a
+normal-direction bug, not a media bug.
+
+Correct check: a surface triangle of the `want` volume separates `want` from not-`want`. Sample BOTH
+sides (centroid +/- normal*depth); legit iff exactly one side is `want`. Flag only "floating" faces
+(`want` on NEITHER side); "buried" faces (`want` on both) are wasteful, not wrong, and reported
+separately. Depth is a few facet widths to clear cylinder/wedge faceting noise.
+
+
+## Cylinders must be built from geo verts, never append_cylinder (phase)
+
+Symptom (17.mis): a tower of stacked cylinders came out as a jagged sawtooth instead of clean nested
+rings. The tower is 7 cylinders of DIFFERENT side counts (16,15,14,13,12,11,10, id2..id8).
+
+Cause: mk_cylinder used the GeometryScript append_cylinder primitive for non-face-aligned cylinders.
+append_cylinder places facets at UE's OWN phase; recover_cylinder can fit centre/radius/rotation but
+NOT the phase, because a circular cross-section has no major axis to key off. So each layer got an
+arbitrary phase and the facets did not stack. (A lone cylinder hides this; a stack of different-n
+cylinders does not.)
+
+Fix: mk_cylinder now ALWAYS returns mk_buffer, i.e. the exact baked geo verts, whose phase is Dark's
+(cyl_local/build_ngon_base, pi/n) for every layer, and which also carries any per-brush rotation and
+elliptical shape faithfully. Side UVs are overwritten afterwards by apply_cyl_face_uvs (per-facet,
+own-normal), so the primitive path's "clean UVs" - its only claimed advantage - were never needed.
+The face-aligned path already used mk_buffer for exactly this phase reason; this just extends it to
+all cylinders.
+
+Rule: for any Dark primitive, prefer mk_buffer (the baked geo) over a UE primitive. The geo is the
+authoritative Dark geometry; a UE primitive re-derives it with UE conventions and loses phase.
+
+
+## Cylinder side texture: emit an explicit slot (side k -> record k)
+
+Symptom (17.mis): on a tower of cylinders with different side counts, the wood/stone pattern sat at
+the wrong CLOCK POSITION on id3 (15 sides) and id7 (11 sides) - shifted by one facet - while every
+even cylinder and id5 (13) were correct.
+
+Cause: cylinder sides were the last shape inferring their texture-record slot from the face-normal
+AZIMUTH (_cyl_slot), which needed the empirical CYL_SLOT_PHASE_FRAC constant. Verified against the
+correct even cylinders in DromEd, the true mapping is trivial: SIDE k -> RECORD slot k. The azimuth
+path reproduced that for even n, but on ODD side counts the atan2 round() tipped exactly ONE facet
+across a step boundary and handed it slot k-1, so that facet (and everything read relative to it)
+looked rotated. n=13 happened to land right; 15 and 11 did not.
+
+Fix: cyl_local now emits an explicit per-triangle tslot exactly like pyr_local/dodec_local - side k
+-> slot k, top cap -> n, bottom cap -> n+1 - and faces_for keys on it (falling back to _cyl_slot only
+for pre-tslot geo). No azimuth, no rounding, no phase constant. Verified: even cylinders and n=13 are
+byte-identical to before; id3 and id7 each shift by one facet to the correct spot.
+
+Lesson (again): use the generator's known slot, never re-derive it from a normal. This is the same
+fix already applied to pyramids and dodecahedra; cylinders were just the last holdout. Combined with
+building cylinders from geo verts (mk_buffer, not append_cylinder), cylinder geometry AND texturing
+now come straight from the baked geo.

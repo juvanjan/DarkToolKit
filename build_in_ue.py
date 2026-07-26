@@ -41,6 +41,11 @@ REBUILD_MATERIALS = True  # WATER material only: delete + recreate instead of re
                           #   materials are still reused. Set False once the graph is settled.
 VALIDATE_MEDIA = True     # audit the built SOLID/WATER volumes against the exact media table and log
                           #   any face that encloses the wrong medium (i.e. the boolean diverged).
+RETAG_SUBDIVIDE = True    # split a result triangle that STRADDLES several coplanar brush faces (e.g.
+                          #   stacked wall bands: brick z12-20, molding z20-24) along the face
+                          #   boundaries and texture each piece with its own face - instead of handing
+                          #   the whole triangle to one face and getting the diagonal "big triangle".
+                          #   Set False to keep whole-triangle assignment.
 LOCAL_INTERSECT_REBUILD = True  # ops 5/7/8 (solid->water, air->solid, water->solid) convert a region
                           #   by INTERSECTING the brush with the running SOLID/WATER mesh. That global
                           #   mesh has ~1400 booleans of accumulated drift, so it hands them stale
@@ -1505,52 +1510,50 @@ def rebuild_unwelded(mesh, tri2face, model=None):
                                "safety cap, ABORTING cull (keeping all)"%(len(cull),len(ids),100*frac,
                                100*MODEL_CULL_MAX_FRAC))
             cull=set()
+    sub = getattr(retag_final,"tri2sub",{}) if RETAG_SUBDIVIDE else {}
+    subdiv=[0]
+    def emit(poly, f):
+        """Append a convex polygon (fan-triangulated) with face f's texture+UV, or a dominant-axis
+        fallback when f is None (never material 0 = flat grey)."""
+        if len(poly)<3: return
+        base=len(verts)
+        if f is None:
+            e1=[poly[1][k]-poly[0][k] for k in range(3)]; e2=[poly[2][k]-poly[0][k] for k in range(3)]
+            cx=_cross(e1,e2); a=[abs(cx[0]),abs(cx[1]),abs(cx[2])]; ax=a.index(max(a))
+            ij=(1,2) if ax==0 else ((0,2) if ax==1 else (0,1))
+        for q in poly:
+            verts.append((q[0],q[1],q[2]))
+            uvs.append(_face_uv_at(f,(q[0],q[1],q[2])) if f else (q[ij[0]]/121.92, q[ij[1]]/121.92))
+        mid=material_id(f["tex"]) if (f and f.get("tex")) else _fallback_matid()
+        for k in range(1,len(poly)-1):
+            tris.append((base,base+k,base+k+1)); mats.append(mid)
     for tid in ids:
         if tid in cull: phantom+=1; continue
-        f=tri2face.get(tid)
         try:
             r=getattr(GTRIPOS,_TRIPOS)(mesh,tid)
             ps=[x for x in (r if isinstance(r,(tuple,list)) else [r]) if hasattr(x,"x")]
         except Exception: continue
         if len(ps)<3: continue
-        # Drop DEGENERATE (near-zero-area) triangles. The boolean occasionally emits collapsed slivers
-        # (they showed up as bare tris at the origin with a zero normal). They render nothing but bloat
-        # the mesh and pollute the diagnostics.
+        # Drop DEGENERATE (near-zero-area) triangles - the boolean occasionally emits collapsed slivers.
         e1=(ps[1].x-ps[0].x,ps[1].y-ps[0].y,ps[1].z-ps[0].z)
         e2=(ps[2].x-ps[0].x,ps[2].y-ps[0].y,ps[2].z-ps[0].z)
         cxd=_cross(e1,e2)
         if (cxd[0]*cxd[0]+cxd[1]*cxd[1]+cxd[2]*cxd[2])<1e-6: degen+=1; continue
-        # Outward skin of the synthetic world block - a surface DromEd never draws. Rebuilding the
-        # mesh triangle by triangle is the cheapest place to remove it: just don't emit it.
-        if f is None and _SHELL[0] is not None:
-            p3=[(q.x,q.y,q.z) for q in ps[:3]]
-            if _is_shell_tri(p3,_tri_normal_from(p3)): culled+=1; continue
-        base=len(verts)
-        if f is None:
-            # NO face matched. The old placeholder was (x/100, y/100) - a fixed projection down world
-            # Z - which collapses on any vertical surface and rendered as barcode stripes. It showed
-            # up as one triangle of a quad striped while its partner (which did match) was correct.
-            # Project along the triangle's OWN dominant axis instead, so no orientation can collapse.
-            e1=(ps[1].x-ps[0].x,ps[1].y-ps[0].y,ps[1].z-ps[0].z)
-            e2=(ps[2].x-ps[0].x,ps[2].y-ps[0].y,ps[2].z-ps[0].z)
-            cx=_cross(e1,e2); a=[abs(cx[0]),abs(cx[1]),abs(cx[2])]
-            ax=a.index(max(a))                       # dominant axis of the triangle normal
-            ij=(1,2) if ax==0 else ((0,2) if ax==1 else (0,1))
-            T_DEF=121.92                             # 4ft, Dark's default tile
-        for q in ps[:3]:
-            verts.append((q.x,q.y,q.z))
-            if f:
-                uvs.append(_face_uv_at(f,(q.x,q.y,q.z)))
-            else:
-                c3=(q.x,q.y,q.z)
-                uvs.append((c3[ij[0]]/T_DEF, c3[ij[1]]/T_DEF))
-        tris.append((base,base+1,base+2))
-        if f and f.get("tex"):
-            mats.append(material_id(f["tex"]))
-        else:
-            # Never emit material 0 here - that is the DEFAULT GREY material and renders as an
-            # untextured patch. Fall back to the mesh's most common texture instead of nothing.
-            mats.append(_fallback_matid()); miss+=1
+        tri=[[ps[0].x,ps[0].y,ps[0].z],[ps[1].x,ps[1].y,ps[1].z],[ps[2].x,ps[2].y,ps[2].z]]
+        if tid in sub:
+            # STRADDLES several coplanar bands: split along the face boundaries, texture each piece.
+            _tpts,faces=sub[tid]
+            pieces,leftover=_clip_tri_among(tri,faces)
+            for poly,ff in pieces: emit(poly,ff)
+            for poly in leftover: emit(poly,None); miss+=1
+            if pieces: subdiv[0]+=1
+            continue
+        f=tri2face.get(tid)
+        # Outward skin of the synthetic world block - a surface DromEd never draws; drop it.
+        if f is None and _SHELL[0] is not None and _is_shell_tri(tri,_tri_normal_from(tri)):
+            culled+=1; continue
+        emit(tri,f)
+        if f is None: miss+=1
     if not tris: return None
     m=new_mesh(); buf=MeshBuffers()
     buf.set_editor_property("vertices",  [unreal.Vector(*v) for v in verts])
@@ -1581,11 +1584,12 @@ def rebuild_unwelded(mesh, tri2face, model=None):
         unreal.log_error("  rebuild_unwelded: %d/%d material assignments FAILED -> those triangles "
                          "render as flat grey (material 0)"%(matfail,len(mats)))
     ensure_uv_normals(m, uvs=False)
-    unreal.log("  rebuild_unwelded: %d tris -> %d verts (unwelded), uv set: %s, unmatched tris=%d%s%s%s"
+    unreal.log("  rebuild_unwelded: %d tris -> %d verts (unwelded), uv set: %s, unmatched tris=%d%s%s%s%s"
                %(len(tris),len(verts),",".join(ok) or "NONE",miss,
                  ("  world-shell culled=%d"%culled) if culled else "",
                  ("  degenerate culled=%d"%degen) if degen else "",
-                 ("  phantom-solid culled=%d"%phantom) if phantom else ""))
+                 ("  phantom-solid culled=%d"%phantom) if phantom else "",
+                 ("  subdivided=%d straddling tris"%subdiv[0]) if subdiv[0] else ""))
     return m
 
 # ---------------------------------------------------------------- world-shell culling
@@ -1668,7 +1672,7 @@ def retag_final(mesh, body):
     if not ids: unreal.log_warning("  retag: no triangles"); return
     tc=len(ids)
     _enable_matids(mesh)
-    groups={}; matched=0; unmatched=[]; shell=0
+    groups={}; matched=0; unmatched=[]; shell=0; sub={}
     # --- id9 pit probe: report which of the open-pit surfaces the boolean actually produced.
     # Open pit interior (cm): x[-1585.8,-1097.3] y[-609.6,609.6] z[-487.7,-243.8]. Bucket every final
     # triangle whose centroid sits on one of the six bounding planes, by (plane, normal sign).
@@ -1691,31 +1695,37 @@ def retag_final(mesh, body):
         # Outward skin of the synthetic world block: no face record can ever match it, so it would
         # land in `unmatched` and be reported as bare. rebuild_unwelded drops it entirely.
         if _is_shell_tri(tpts or [cl], nrl): shell+=1; continue
-        best=None; bestt=-1; bestpd=1e9
+        # Collect EVERY coplanar face covering any vertex of the triangle (orientation ~parallel and on
+        # the plane). abs(dot) is kept: an AIR carve's visible normal is the negation of the stored
+        # brush-outward normal, so both signs are legitimate. (The old 0.5 gate let a wedge hypotenuse
+        # match its own bottom face; 0.99 keeps it strict.)
+        qpts=tpts or [cl]
+        cands=[]
         for (t,f) in cells.get(_cell(cl),[])+big:
             fn=f["n"]
-            # Orientation must be NEARLY PARALLEL, not merely "roughly coplanar". At the old 0.5
-            # (60 deg!) a wedge's hypotenuse matched its own bottom face: MISS5 id33's slant normal
-            # [-0.45,0,0.89] has |dot| 0.894 with its [0,0,-1] bottom, and the brush is only 61cm
-            # tall, so slant triangles near the lower edge also fell inside the 15cm plane tolerance
-            # and took the bottom face's texture - a triangle of the wrong texture across the lower
-            # half of the slant. abs() is kept: an AIR carve's visible surface normal is the negation
-            # of the stored brush-outward normal, so both signs are legitimate.
             if abs(_dot(nrl,fn))<RETAG_NORMAL_DOT: continue
-            pd=abs(_dot(cl,fn)-f["d"])
-            if pd>15.0: continue                               # not on the face's plane
-            # FULL COVERAGE: the face polygon must contain the WHOLE triangle, not just its centroid.
-            # Where a later brush only PARTIALLY overlaps a face, the centroid test hands one triangle
-            # of a quad to the rival and the other to the original, splitting the surface along the
-            # triangle DIAGONAL (the "big triangle" of wrong texture on id34/id406). Dark splits along
-            # the brush boundary (a straight edge); we can't without subdividing, so a partial overlap
-            # now leaves the original texture intact. The face's OWN triangles still match - they fill
-            # its polygon, and _pt_in_poly's 1.5cm tolerance admits verts on the boundary.
-            if not all(_pt_in_poly(q,f["poly"],fn) for q in (tpts or [cl])): continue
-            if t>bestt or (t==bestt and pd<bestpd): bestt=t; bestpd=pd; best=f
-        if best is not None:
+            if abs(_dot(cl,fn)-f["d"])>15.0: continue          # not on the face's plane
+            cov=[_pt_in_poly(q,f["poly"],fn) for q in qpts]
+            if any(cov): cands.append((t,f,cov))
+        # The correct texture at any point is the LATEST face covering it (Dark's 'later brush wins').
+        # Find that per vertex. If all verts agree on one face, it covers the whole (convex) triangle
+        # -> assign it whole (fast path). If they DISAGREE - a later band overrides only part of the
+        # triangle, e.g. mold09 over the top of a full-height brick wall - the triangle straddles a
+        # texture boundary and must be SUBDIVIDED, even though a full-height brush 'fully covers' it.
+        latest=[None]*len(qpts); lt=[-1]*len(qpts)
+        for (t,f,cov) in cands:
+            for i in range(len(qpts)):
+                if cov[i] and t>lt[i]: lt[i]=t; latest[i]=f
+        uniform = latest[0] is not None and all(latest[i] is latest[0] for i in range(len(qpts)))
+        if uniform:
+            best=latest[0]
             _set_matid_tri(mesh,tid,material_id(best["tex"]))
             groups.setdefault(id(best),(best,[]))[1].append(tid); matched+=1
+        elif RETAG_SUBDIVIDE and tpts and cands:
+            seen=set(); fl=[]
+            for t,f,_c in sorted(cands,key=lambda x:x[0],reverse=True):   # latest first
+                if id(f) not in seen: seen.add(id(f)); fl.append(f)
+            sub[tid]=(tpts,fl)
         else:
             unmatched.append((tid,nrl,cl))
     unreal.log("  retag: %d/%d tris matched to %d faces%s"%(matched,tc,len(groups),
@@ -1795,6 +1805,8 @@ def retag_final(mesh, body):
     for fid,(f,tids) in groups.items():
         for t in tids: tri2face[t]=f
     retag_final.tri2face=tri2face
+    retag_final.tri2sub=sub
+    if sub: unreal.log("  retag subdivide: %d straddling tris split across coplanar face bands"%len(sub))
     if GUV_PLN and (GSEL_IDX or GSEL_BOX):
         okc=0; nosel=0; noproj=0; skipflat=0; skiptilt=0
         for fid,(f,tids) in groups.items():
@@ -1987,6 +1999,48 @@ def _split_poly(poly, n, d, eps=0.05):
             p=[a[k]+(b[k]-a[k])*t for k in range(3)]
             neg.append(p); pos.append(p)
     return (neg if len(neg)>=3 else None), (pos if len(pos)>=3 else None)
+
+def _face_edge_planes(f):
+    """Interior-facing edge planes of convex face polygon f (each perpendicular to f, normal points
+    INWARD so 'above' = dot(n,p)>=d is inside the polygon). Used to clip a result triangle to a face."""
+    poly=f["poly"]; fn=f["n"]
+    c=[sum(p[i] for p in poly)/len(poly) for i in range(3)]
+    out=[]
+    for i in range(len(poly)):
+        a=poly[i]; b=poly[(i+1)%len(poly)]
+        ed=[b[k]-a[k] for k in range(3)]
+        pn=_cross(ed,fn); L=math.sqrt(_dot(pn,pn))
+        if L<1e-9: continue
+        pn=[x/L for x in pn]; d=_dot(pn,a)
+        if _dot(pn,c)-d<0: pn=[-x for x in pn]; d=-d
+        out.append((pn,d))
+    return out
+
+def _clip_tri_among(tri, faces):
+    """Partition triangle `tri` among coplanar `faces` (already sorted LATEST-first). Each face claims
+    its overlap (Dark's 'later brush wins'); the remainder cascades to earlier faces. Returns
+    (pieces, leftover) where pieces=[(poly,face)] and leftover=[poly] covered by no face. Validated
+    offline: area-conserving and disjoint, so no double-texturing / z-fighting."""
+    remaining=[tri]; pieces=[]
+    for f in faces:
+        eps=_face_edge_planes(f)
+        if not eps: continue
+        nxt=[]
+        for pc in remaining:
+            inside=pc
+            for (pn,d) in eps:
+                _,inside=_split_poly(inside,pn,d)      # keep ABOVE = inside this edge
+                if inside is None: break
+            if inside is None: nxt.append(pc); continue # pc entirely outside f
+            pieces.append((inside,f))
+            rem=pc                                       # rem = pc MINUS f, as disjoint outside pieces
+            for (pn,d) in eps:
+                below,above=_split_poly(rem,pn,d)        # below = OUTSIDE this edge (final), above = inside
+                if below: nxt.append(below)
+                if above is None: rem=None; break
+                rem=above
+        remaining=nxt
+    return pieces, remaining
 
 def clip_surface_to_medium(mesh, model, want, probe, maxpieces=96):
     """Keep only the parts of `mesh`'s surface that face `want`, splitting along media boundaries.

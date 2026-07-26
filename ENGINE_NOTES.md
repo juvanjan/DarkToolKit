@@ -1040,3 +1040,36 @@ Broader implication: the same trap affects the GLOBAL water/result subtracts (WO
 With LOCAL_INTERSECT_REBUILD on, op5/7/8 read the local meshes so the global residue no longer feeds
 phantom solid, and the water SURFACE is model-clipped (immune). If phantom water/solid ever appears
 via the global path, apply the same empty-result guard to WOP.
+
+
+## Retag subdivision: split straddling triangles at coplanar-face boundaries
+
+Symptom: the diagonal 'big triangle' where a wall quad straddles the boundary between stacked coplanar
+faces from different brushes (id180 side9: brick z12-20 / mold09 z20-24 / brick z24-40 at x=-92.3;
+id645 north: cracked / brick / mold09 at y=33). retag's per-triangle assignment can't represent a
+boundary that cuts across a triangle: the full-coverage test leaves the straddler unmatched, the
+rescue pass hands it to one neighbour, and its two halves show different textures split on the
+triangle diagonal.
+
+Fix (RETAG_SUBDIVIDE): retag now, for a triangle no single face fully covers, collects the coplanar
+faces that PARTIALLY cover it (>=1 vertex inside) into tri2sub[tid], latest-first. rebuild_unwelded
+then clips the triangle among those faces (_clip_tri_among: each face claims its overlap via inward
+edge-plane clipping, remainder cascades to earlier faces = Dark's 'later wins') and textures each
+piece with its own face; uncovered leftover -> fallback. Same family as the water-surface clip.
+
+REFINEMENT (the id180-vs-id645 split): the first cut only subdivided when NO face fully covered the
+triangle (best is None). That fixed id645 but NOT id180, because a tall brick brush (id9, z0-24) spans
+the whole wall and FULLY covers the straddler -> best=id9, no subdivision, and the later mold09 band
+(id180, z20-24) that should override the top could not. The correct texture at any point is the LATEST
+face covering it, so retag now computes, per triangle VERTEX, the latest covering face; if all three
+agree -> that face covers the whole (convex) triangle, assign it whole (fast path); if they DISAGREE
+-> subdivide among ALL coplanar coverers (full or partial) latest-first, even when a full-height brush
+'fully covers'. This is what makes mold09-over-brick split correctly regardless of a spanning brush.
+Verified offline on the real id180 config: straddle z18-22 -> uniform=False, per-vert brick/brick/mold09;
+inside-band triangles stay uniform (mold09 / brick) on the fast path.
+
+Validated offline against the real id180 wall: a triangle straddling z=20 splits into brick(below) +
+mold09(above); one straddling z=20 AND z=24 splits into brick/mold09/brick - both area-conserving and
+disjoint (no double-texture / z-fight). The non-straddling path is unchanged (emit() fan of one
+triangle == old behaviour). UE mesh append is the same proven append_buffers_to_mesh path; only that
+final step is engine-untested.

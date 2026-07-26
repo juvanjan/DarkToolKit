@@ -900,3 +900,143 @@ Lesson (again): use the generator's known slot, never re-derive it from a normal
 fix already applied to pyramids and dodecahedra; cylinders were just the last holdout. Combined with
 building cylinders from geo verts (mk_buffer, not append_cylinder), cylinder geometry AND texturing
 now come straight from the baked geo.
+
+
+## Phantom solid from intersect-based ops (water->solid / air->solid)
+
+Symptom (MISS1_mod): a point the model AND DromEd call AIR came out SOLID in the build.
+
+Trace: fill-water carved it to water, evaporate (id93) turned it to air; then water->solid (id178,
+op8) ran. id178 has legit water elsewhere so its guard correctly proceeds, but op8 adds solid as
+`brush INTERSECT WATER_mesh` UNIONed into result. On a big mission the accumulated boolean WATER mesh
+(dozens of unions/subtracts) does not exactly match the analytic model - the evaporate did not fully
+clear the water at this point in the MESH - so op8 converted that stale/phantom water to solid where
+the model says air. 42 water->solid brushes in MISS1_mod, so this is widespread, not a one-off.
+
+Same root as the water-surface bug: the accumulated boolean volume diverges from the analytic model.
+Water was fixed by rebuilding its surface from the model; the SOLID mesh inherits the divergence
+through op5/op8, which read the stale meshes.
+
+Fix (MODEL_CULL_SOLID, in rebuild_unwelded): the media model is the authority. A real solid surface
+triangle has SOLID on exactly one side per medium_at; a phantom-solid blob's surface has air on BOTH
+sides. Sample both sides (+/- MODEL_CULL_PROBE_CM along the normal) and drop the triangle if neither
+side is SOLID. The phantom blob loses its shell and renders (and collides) as nothing. Probe 8cm
+clears sub-facet faceting offsets (a few cm) while staying inside any real wall thicker than it, so
+genuine thin walls - whose model interior IS solid - survive. Flag defaults on; watch the
+'phantom-solid culled' count and set False if it ever removes a real (sub-8cm) wall.
+
+This is a post-hoc CORRECTION, not a true fix of op5/op8. A real fix would feed those ops a
+model-correct water/solid volume instead of the accumulated boolean mesh; that is a larger change
+(essentially rebuilding volumes from the model, as Dark's BSP does). The cull removes the visible/
+collidable symptom uniformly and cheaply. UNVERIFIED IN-ENGINE at time of writing.
+
+
+### UPDATE: MODEL_CULL_SOLID failed in-engine - disabled
+
+Tested on MISS1_mod: it culled 6785 tris and REAL WALLS VANISHED. The premise - "a real solid
+surface tri has SOLID on one side per medium_at" - does not hold at an 8cm probe on dense geometry:
+a genuine wall frequently has air within 8cm on BOTH sides (the wall is thin, or there is an adjacent
+air pocket/room on its 'solid' side), so it reads as phantom and gets removed. The normal-independent
+validate_volume uses the same test and its "floating SOLID" count (6686 here) is therefore mostly
+FALSE POSITIVES, not real phantoms - do not treat that number as a bug count.
+
+Conclusion: medium_at is reliable as a WHOLE-CELL / coarse oracle (it matched the voxel model and
+DromEd for point queries), but NOT as a per-triangle few-cm-probe discriminator between phantom and
+real solid. Flag left OFF. The phantom solid from water->solid over stale accumulated water remains a
+real but localised issue; a safe fix needs a model-correct water VOLUME fed to op5/op8 (a larger
+rebuild), not a post-hoc surface cull. Do not re-enable without a fundamentally different test.
+
+
+### MODEL_CULL_SOLID, take 2: exact-plane probe + safety cap (re-enabled)
+
+The take-1 failure (deleted real walls) was NOT medium_at being wrong - validated on MISS1_mod, the
+convex-plane point test agrees with an independent ray-cast mesh test to 7/11800 points (boundary
+ties) across box/cylinder/wedge/pyramid/dodec. It was the PROBE: 8cm from the triangle centroid
+crosses the many thin features of a detailed mansion (trim, ledges, moldings), so their solid side
+read as air.
+
+Take-2 evaluates the model INFINITESIMALLY off the EXACT retag face plane, the way Dark decides a
+boundary:
+  - project the triangle centroid onto f's exact plane (n,d), then step +/- MODEL_CULL_PROBE_CM (1cm)
+    along f's normal. A wall >=1cm thick keeps SOLID on one side -> survives, regardless of thickness.
+  - only MATCHED tris are eligible (an unmatched tri has no trusted plane).
+  - decided in a PRE-PASS; if the cull would drop more than MODEL_CULL_MAX_FRAC (6%) of tris it ABORTS
+    entirely and keeps the full mesh - a hard guard against another 'walls vanished'.
+
+This works now that cylinders build from geo verts (mk_buffer): built surface == geo plane, so there
+is no faceting offset to clear and a tiny probe is safe. It is still a post-hoc correction of the
+op5/op8 phantom, not a cure of the boolean-volume drift, but it is thin-feature-safe and self-limiting.
+UNVERIFIED IN-ENGINE; watch the 'phantom-solid culled' count and confirm trim/ledges survive.
+
+
+### MODEL_CULL_SOLID, take 3: also a dead end - disabled for good
+
+Even off the EXACT retag face plane with a 1cm probe, the cull flagged 12% of MISS1_mod result tris
+(safety cap aborted, so no walls lost this time). A neighbourhood scan of the flagged coords showed
+they sit right next to real solid (within 30cm; one was itself solid) - i.e. they are REAL wall
+surfaces, mis-flagged. Cause: ~12% of retag matches put the triangle on a slightly-offset face plane,
+so projecting onto that plane and sampling +/-1cm lands in air on both sides even though the triangle
+is a real boundary.
+
+Conclusion, now firm: a post-hoc PER-TRIANGLE cull cannot isolate phantom solid, because it compounds
+two unreliable things - the boolean result geometry and the retag plane match. All three probe
+variants (8cm centroid, 1cm centroid, 1cm exact-plane) either delete real walls or, capped, do
+nothing. Do not attempt a cull-based fix again.
+
+The only correct fix is to stop deriving the SOLID volume from accumulated booleans at all and emit
+its surface from the media model + geo faces directly - the way the WATER surface already works
+(clip_surface_to_medium): for each brush face polygon, clip to its visible extent and keep the pieces
+that are a real solid/non-solid boundary per medium_at, textured by that face. That removes the
+phantom by construction (op8's stale-water solid never enters the geometry). It is a new pipeline with
+its own risks (cracks/T-junctions between per-brush faces, performance) and must be built iteratively
+in-engine. Scoped but not small.
+
+
+## Option 3: local media rebuild for the intersect ops (5/7/8)
+
+The phantom solid (id178 corridor) is baked by the ops that CONVERT a region by intersecting the
+brush with the running SOLID/WATER mesh: op5 solid->water (reads SOLID), op7 air->solid (reads
+WATER), op8 water->solid (reads WATER). That global mesh carries ~1400 booleans of accumulated
+drift, so e.g. an evaporate's subtract leaves residual water that op8 later turns to phantom solid.
+
+Fix (LOCAL_INTERSECT_REBUILD): for each such brush, replay ONLY the earlier brushes whose bbox
+overlaps it into a FRESH local (LS, LW) using the exact media ops, and intersect against that instead
+of the global mesh. A short clean sequence (avg 36 brushes on MISS1_mod) subtracts reliably, so the
+stale water is gone and op8 adds nothing where the model says air. `mk(b, tex=False)` builds the
+throwaway replay tools without material/UV work.
+
+Validated offline (the LOGIC, not the UE booleans): a per-point simulation of the local replay gives
+LW=empty at the phantom point (op8 adds nothing), and matches the analytic model at 0/208 sampled
+points across every op5/7/8 region. Boolean EXECUTION is untested but a short local sequence is far
+more reliable than the 1400-op global one.
+
+Cost: ~3300 extra boolean ops (2-3x build time). Contained: only ops 5/7/8 change; everything else
+(fill ops, textures, water surface, cylinders) is untouched. Flag off = old behavior. This is a
+correction of the intersect source, not the full model-driven rebuild (1b); it does not fix any
+boolean-fidelity artifact outside ops 5/7/8, but those three are the only ones that read a drifted
+mesh to create geometry.
+
+
+## THE ROOT CAUSE: the empty-result trap
+
+`BooleanUnion: Boolean operation failed due to an empty result` has been in every build log. It is
+not noise - it is the root cause of the phantom solid. GeometryScript's apply_mesh_boolean REFUSES a
+SUBTRACT whose result would be empty (the tool fully contains the target) and leaves the target
+UNCHANGED. So when an evaporate box fully contains the water it should clear, the water is NOT
+removed - and a later water->solid converts that stale water into phantom solid.
+
+This is why nothing worked: it defeats the global water mesh (evaporate covers all current water ->
+subtract refused -> water survives) AND the option-3 local rebuild even harder (the local water is
+small and the evaporate always contains it). It is a specific, fixable engine behaviour, not vague
+'drift'.
+
+Fix (in local_media's `sub`): before a removal subtract, if the tool's convex hull fully contains the
+target mesh's AABB (mesh_bbox + _inside_solid on all 8 corners), return a fresh EMPTY mesh instead of
+calling the boolean that would refuse to empty it. mesh_bbox uses GeometryScript get_mesh_bounding_box
+(method_like 'bounding','box'); if that is unavailable sub() falls back to the plain subtract (no
+regression, no fix - visible in the log).
+
+Broader implication: the same trap affects the GLOBAL water/result subtracts (WOP, result-=brush).
+With LOCAL_INTERSECT_REBUILD on, op5/7/8 read the local meshes so the global residue no longer feeds
+phantom solid, and the water SURFACE is model-clipped (immune). If phantom water/solid ever appears
+via the global path, apply the same empty-result guard to WOP.

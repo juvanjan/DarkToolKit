@@ -26,7 +26,7 @@
 
 import unreal, json, math
 
-GEO_PATH    = r"C:\Nex\DarkSimProject\DarkSimToolkit\test_missions\17_geo.json"   # <-- SET (the *_geo.json)
+GEO_PATH    = r"C:\Nex\DarkSimProject\DarkSimToolkit\test_missions\MISS1_mod_geo.json"   # <-- SET (the *_geo.json)
 ASSET_PATH  = r"/Game/Mission/SM_Mission"
 BUILD_WATER = True        # also bake the water volume as a separate static mesh (SM_..._Water)
 BUILD_COLLISION = True    # give the mesh collision (complex-as-simple: the triangles ARE the collision)
@@ -41,6 +41,24 @@ REBUILD_MATERIALS = True  # WATER material only: delete + recreate instead of re
                           #   materials are still reused. Set False once the graph is settled.
 VALIDATE_MEDIA = True     # audit the built SOLID/WATER volumes against the exact media table and log
                           #   any face that encloses the wrong medium (i.e. the boolean diverged).
+LOCAL_INTERSECT_REBUILD = True  # ops 5/7/8 (solid->water, air->solid, water->solid) convert a region
+                          #   by INTERSECTING the brush with the running SOLID/WATER mesh. That global
+                          #   mesh has ~1400 booleans of accumulated drift, so it hands them stale
+                          #   water/solid and they bake phantom geometry (the id178 corridor). Instead,
+                          #   rebuild a FRESH local solid+water for just the earlier brushes overlapping
+                          #   this one - a short, clean sequence - and intersect against that. Keeps the
+                          #   whole pipeline; only these three ops change. Set False for the old behavior.
+MODEL_CULL_SOLID = False  # DEAD END - a post-hoc per-triangle cull cannot isolate phantom solid. Even
+                          #   off the exact retag face plane with a 1cm probe it flagged 12% of tris on
+                          #   MISS1_mod, and a neighbourhood scan showed those are REAL wall surfaces
+                          #   near solid, mis-flagged because ~12% of retag matches put the triangle on
+                          #   a slightly-offset plane. Culling them deletes real walls (the safety cap
+                          #   now aborts instead). The phantom solid from water->solid over stale water
+                          #   needs the model-driven surface rebuild, not this. Left OFF.
+MODEL_CULL_PROBE_CM = 1.0 # epsilon off the exact face plane. Tiny on purpose: the plane is exact, so
+                          #   this only disambiguates the two adjacent cells; larger crosses thin walls.
+MODEL_CULL_MAX_FRAC = 0.06# safety cap: if the cull would drop more than this fraction of tris, abort it
+                          #   entirely and keep the full mesh (guards against another 'walls vanished').
 WATER_TILE_CM = 243.84    # one water-texture repeat per this many cm (8 ft). Matches the waterhw
                           #   pack's `terrain_scale 128` at Dark scale 16: 128 * 2^(16-20) = 8 ft.
                           #   Water has no brush-face record to read a per-face scale from.
@@ -55,7 +73,7 @@ FILL_UNION_GROW_CM = 0.0  # 0 = OFF (geometry stays DromEd-exact). Inflates the 
                           #   byte-identical output, which is what disproved the coincidence theory.
                           #   The real cause was triangle-id gaps - see tri_ids(). Leave at 0 unless a
                           #   genuine coplanar-union artifact is proven; it perturbs real geometry.
-TEST_LIMIT  = 0          # 0 = full mission; >0 = world solid + first N brushes (quick preview)
+TEST_LIMIT  = 0           # 0 = full mission; >0 = world solid + first N brushes (quick preview)
 UV_TILE_CM  = 64.0        # world-space texture tile size (one texture repeat per this many cm)
                           #   calibrated to Dark scale 16 (~2.1 ft/tile). Halve it -> texture bigger.
 
@@ -102,6 +120,19 @@ WEDGE_CUT_FLIP = False    # if a wedge fills the wrong diagonal half, flip this
 GASSET,ASSET_FN = method_like("static_mesh_asset","from_mesh")
 GCOPY,COPY_FN = method_like("copy","mesh","to","static")     # overwrite an existing SM in place (no dialog)
 _TCLIB,_TCFN = method_like("triangle","count")
+_BBLIB,_BBFN = method_like("bounding","box")     # GeometryScript_MeshQueries.get_mesh_bounding_box
+def mesh_bbox(m):
+    """(min,max) world-space AABB of a DynamicMesh, or None. Used to detect the empty-result case:
+       a SUBTRACT whose tool fully contains the target is rejected by the boolean (it refuses an empty
+       result) and leaves the target UNCHANGED - so stale geometry survives. We detect containment and
+       clear the target ourselves instead of trusting that subtract."""
+    if not _BBLIB or tri_count(m)<=0: return None
+    try:
+        r=getattr(_BBLIB,_BBFN)(m)
+        box=r[0] if isinstance(r,(tuple,list)) else r
+        mn=box.get_editor_property("min"); mx=box.get_editor_property("max")
+        return ([mn.x,mn.y,mn.z],[mx.x,mx.y,mx.z])
+    except Exception: return None
 def CopyOpts():   t=_type("GeometryScriptCopyMeshToAssetOptions","CopyMeshToAsset","Options",opt=True); return t() if t else None
 def BoolOpts():   t=_type("GeometryScriptMeshBooleanOptions","BooleanOptions",opt=True); return t() if t else None
 def CutOpts():    t=_type("GeometryScriptMeshPlaneCutOptions","PlaneCut","Options",opt=True); return t() if t else None
@@ -1427,7 +1458,7 @@ def _face_uv_at(f, p):
     return ((U[0]*p[0]+U[1]*p[1]+U[2]*p[2])/(su*tile_u) - uu/su,
             (V[0]*p[0]+V[1]*p[1]+V[2]*p[2])/tile_v      - vv)
 
-def rebuild_unwelded(mesh, tri2face):
+def rebuild_unwelded(mesh, tri2face, model=None):
     """Rebuild the finished mesh with every triangle owning its own 3 vertices, UVs computed here.
 
     WHY: the boolean returns a WELDED UV overlay - faces sharing a vertex share its UV element. Each
@@ -1438,8 +1469,44 @@ def rebuild_unwelded(mesh, tri2face):
     if GEDIT is None: return None
     ids=tri_ids(mesh)                  # NOT range(tri_count): unvisited ids were DROPPED from the
     if not ids: return None            # rebuilt mesh, which is exactly how faces became see-through
-    verts=[]; tris=[]; uvs=[]; mats=[]; miss=0; culled=0; degen=0
+    verts=[]; tris=[]; uvs=[]; mats=[]; miss=0; culled=0; degen=0; phantom=0
+    use_model = model is not None and MODEL_CULL_SOLID
+    # PHANTOM-SOLID cull, decided in a PRE-PASS off the EXACT retag face plane.
+    # Intersect-based ops (water->solid, air->solid) grow solid where the accumulated boolean WATER
+    # mesh kept water the model (and DromEd) evaporated - a blob the model calls air. A real solid
+    # surface has SOLID on exactly one side per the model; a phantom's surface has air on BOTH.
+    # Evaluate the model INFINITESIMALLY off the face plane (project the centroid onto f's exact plane,
+    # step +/- a tiny epsilon along f's normal), NOT a fat probe off the triangle: that is how Dark
+    # decides a boundary and it is independent of feature thickness, so thin trim/ledges/moldings
+    # survive (the 8cm centroid probe was what deleted the mansion's thin walls). Only MATCHED tris are
+    # eligible - an unmatched tri has no trusted plane, so it is never culled. A safety cap aborts the
+    # whole cull if it would remove an implausible fraction, so it can never silently gut the level.
+    cull=set()
+    if use_model:
+        e=MODEL_CULL_PROBE_CM
+        for tid in ids:
+            f=tri2face.get(tid)
+            if not f: continue
+            n=f["n"]; dpl=f["d"]
+            try:
+                r=getattr(GTRIPOS,_TRIPOS)(mesh,tid)
+                vs=[x for x in (r if isinstance(r,(tuple,list)) else [r]) if hasattr(x,"x")]
+            except Exception: continue
+            if len(vs)<3: continue
+            c=[(vs[0].x+vs[1].x+vs[2].x)/3.0,(vs[0].y+vs[1].y+vs[2].y)/3.0,(vs[0].z+vs[1].z+vs[2].z)/3.0]
+            s=_dot(c,n)-dpl                                  # signed distance to the exact face plane
+            cp=[c[i]-s*n[i] for i in range(3)]               # centroid projected ONTO the plane
+            if (medium_at([cp[i]-n[i]*e for i in range(3)],model)!=SOLID and
+                medium_at([cp[i]+n[i]*e for i in range(3)],model)!=SOLID):
+                cull.add(tid)
+        frac=len(cull)/float(max(1,len(ids)))
+        if frac>MODEL_CULL_MAX_FRAC:
+            unreal.log_warning("  phantom-solid cull would drop %d/%d (%.1f%%) tris - over the %.0f%% "
+                               "safety cap, ABORTING cull (keeping all)"%(len(cull),len(ids),100*frac,
+                               100*MODEL_CULL_MAX_FRAC))
+            cull=set()
     for tid in ids:
+        if tid in cull: phantom+=1; continue
         f=tri2face.get(tid)
         try:
             r=getattr(GTRIPOS,_TRIPOS)(mesh,tid)
@@ -1514,10 +1581,11 @@ def rebuild_unwelded(mesh, tri2face):
         unreal.log_error("  rebuild_unwelded: %d/%d material assignments FAILED -> those triangles "
                          "render as flat grey (material 0)"%(matfail,len(mats)))
     ensure_uv_normals(m, uvs=False)
-    unreal.log("  rebuild_unwelded: %d tris -> %d verts (unwelded), uv set: %s, unmatched tris=%d%s%s"
+    unreal.log("  rebuild_unwelded: %d tris -> %d verts (unwelded), uv set: %s, unmatched tris=%d%s%s%s"
                %(len(tris),len(verts),",".join(ok) or "NONE",miss,
                  ("  world-shell culled=%d"%culled) if culled else "",
-                 ("  degenerate culled=%d"%degen) if degen else ""))
+                 ("  degenerate culled=%d"%degen) if degen else "",
+                 ("  phantom-solid culled=%d"%phantom) if phantom else ""))
     return m
 
 # ---------------------------------------------------------------- world-shell culling
@@ -1771,16 +1839,18 @@ def assign_materials(sm):
         except Exception as e: unreal.log_warning("  slot %d (%s) assign failed: %s"%(mid,name,e))
     unreal.log("Assigned %d materials (+default)"%len(_MATS))
 
-def mk(b,grow_xy=0.0):
+def mk(b,grow_xy=0.0,tex=True):
     # grow_xy>0 inflates the two non-vertical walls of a BOX tool (fill-solid union only; see mk_box).
     # A shallow copy carries the flag so the shared brush dict and its texture data are untouched.
+    # tex=False: geometry only, skip material/UV work - for throwaway boolean TOOLS (e.g. the local
+    # media replay), whose textures never reach the final mesh.
     if grow_xy and b.get("shape")=="box":
         b=dict(b); b["_grow_xy"]=grow_xy
     if b.get("shape")=="box":      m=mk_box(b)
     elif b.get("shape")=="wedge":  m=mk_wedge(b)
     elif b.get("shape")=="cylinder": m=mk_cylinder(b)
     else:                          m=mk_buffer(b)
-    if _TEX_OK[0]:
+    if tex and _TEX_OK[0]:
         tag_materials(m,b)
         apply_face_uvs(m,b)          # per-face UVs at Dark scale (before boolean, so they carry through)
         if b.get("shape")=="cylinder":
@@ -2134,6 +2204,65 @@ def run():
         # t -= WATER, skipped while WATER is empty (same empty-tool trap as WOP).
         if tri_count(WATER)>0: BOP(t,WATER,SUBTRACT)
         return t
+    # ---- local media replay for the intersect ops (5/7/8), see LOCAL_INTERSECT_REBUILD ----
+    _bbcache=[None]*len(body)
+    def _bbx(j):
+        if _bbcache[j] is None:
+            V=body[j]["verts"]
+            _bbcache[j]=([min(v[k] for v in V) for k in range(3)],[max(v[k] for v in V) for k in range(3)])
+        return _bbcache[j]
+    def _ov(a,b): return all(a[0][k]<=b[1][k] and b[0][k]<=a[1][k] for k in range(3))
+    def _hull_has_bbox(sol, m):
+        # True if brush convex hull `sol` fully contains mesh m's AABB (all 8 corners inside) -> a
+        # subtract of this brush would EMPTY m, which the boolean rejects (leaves m unchanged).
+        if sol is None: return False
+        bb=mesh_bbox(m)
+        if bb is None: return False
+        for sx in (bb[0][0],bb[1][0]):
+            for sy in (bb[0][1],bb[1][1]):
+                for sz in (bb[0][2],bb[1][2]):
+                    if not _inside_solid([sx,sy,sz],sol,eps=0.5): return False
+        return True
+    _lm_stats=[0,0]   # (calls, total replayed brushes)
+    def local_media(idx, tb):
+        """Fresh (LS, LW) = solid & water meshes within brush tb's region, from ONLY the earlier
+        brushes that overlap it, replayed with the exact media ops. Short clean sequence -> no drift.
+        LS starts as tb (the world is solid there); LW starts empty. `sub` handles the empty-result
+        trap: if the removal tool fully contains the target, the boolean would refuse the empty result
+        and leave stale geometry, so we return a fresh empty mesh instead."""
+        LS=mk(tb,tex=False); LW=new_mesh()
+        tbb=_bbx(idx)
+        def sub(mesh, sol, tool):
+            if tri_count(mesh)==0: return mesh
+            if _hull_has_bbox(sol, mesh): return new_mesh()   # tool contains all of it -> empties
+            BOP(mesh, tool, SUBTRACT); return mesh
+        nrep=0
+        for j in range(idx):
+            if not _ov(_bbx(j),tbb): continue
+            b2=body[j]; o2=b2["op"]; sol2=_SOLS[j][1]; nrep+=1
+            if   o2==0: BOP(LS,mk(b2,tex=False),UNION); LW=sub(LW,sol2,mk(b2,tex=False))
+            elif o2==1: LS=sub(LS,sol2,mk(b2,tex=False)); LW=sub(LW,sol2,mk(b2,tex=False))
+            elif o2==2: LS=sub(LS,sol2,mk(b2,tex=False)); BOP(LW,mk(b2,tex=False),UNION)
+            elif o2==3:                                    # flood: water += brush - solid
+                t2=mk(b2,tex=False)
+                if tri_count(LS)>0: BOP(t2,LS,SUBTRACT)
+                BOP(LW,t2,UNION)
+            elif o2==4: LW=sub(LW,sol2,mk(b2,tex=False))   # evaporate
+            elif o2==5:                                    # solid->water: water += brush & solid; solid -= brush
+                if tri_count(LS)>0:
+                    t2=mk(b2,tex=False); BOP(t2,LS,INTERSECT); BOP(LW,t2,UNION)
+                LS=sub(LS,sol2,mk(b2,tex=False))
+            elif o2==6: LS=sub(LS,sol2,mk(b2,tex=False))   # solid->air
+            elif o2==7:                                    # air->solid: solid += brush - water
+                t2=mk(b2,tex=False)
+                if tri_count(LW)>0: BOP(t2,LW,SUBTRACT)
+                BOP(LS,t2,UNION)
+            elif o2==8:                                    # water->solid: solid += brush & water; water -= brush
+                if tri_count(LW)>0:
+                    t2=mk(b2,tex=False); BOP(t2,LW,INTERSECT); BOP(LS,t2,UNION)
+                LW=sub(LW,sol2,mk(b2,tex=False))
+        _lm_stats[0]+=1; _lm_stats[1]+=nrep
+        return LS,LW
     # Convex descriptions for the guard below: which media a brush needs to find inside itself for
     # its intermediate boolean to be meaningful (see media_present).
     _WS=_brush_solid(world) if BUILD_WORLD_BOX else None
@@ -2165,9 +2294,15 @@ def run():
             elif op==4:  WOP(mk(b),SUBTRACT)
             elif op==5:
                 # solid->water. SOLID -= B happens either way (S->W removes it from solid); only the
-                # WATER gain is conditional on there actually being solid to convert.
+                # WATER gain is conditional on there actually being solid to convert. Intersect against
+                # a FRESH local solid, not the drifted global `result`.
                 if guarded(i-1,b,op):
-                    t=mk(b); BOP(t,result,INTERSECT); BOP(WATER,t,UNION)
+                    if LOCAL_INTERSECT_REBUILD:
+                        LS,LW=local_media(i-1,b)
+                        if tri_count(LS)>0:
+                            t=mk(b); BOP(t,LS,INTERSECT); BOP(WATER,t,UNION)
+                    else:
+                        t=mk(b); BOP(t,result,INTERSECT); BOP(WATER,t,UNION)
                 BOP(result,mk(b),SUBTRACT)
             # solid->air {S:A, A:A, W:W}: carve the solid but LEAVE WATER ALONE. That water clause is
             # the entire difference from `fill air` (op 1), which also subtracts from WATER.
@@ -2175,12 +2310,24 @@ def run():
             # air->solid {S:S, A:S, W:W}: fill everything in the brush that is not already water.
             elif op==7:
                 if guarded(i-1,b,op):
-                    t=MINUS_W(mk(b,grow_xy=FILL_UNION_GROW_CM)); BOP(result,t,UNION)
+                    if LOCAL_INTERSECT_REBUILD:
+                        LS,LW=local_media(i-1,b)
+                        t=mk(b,grow_xy=FILL_UNION_GROW_CM)
+                        if tri_count(LW)>0: BOP(t,LW,SUBTRACT)
+                        BOP(result,t,UNION)
+                    else:
+                        t=MINUS_W(mk(b,grow_xy=FILL_UNION_GROW_CM)); BOP(result,t,UNION)
             # water->solid {S:S, A:A, W:S}: only the WATER inside the brush turns solid.
             elif op==8:
                 # WATER -= B is unconditional (W->S removes it from water); the SOLID gain is not.
+                # Intersect against a FRESH local water, not the drifted global WATER (the phantom fix).
                 if guarded(i-1,b,op):
-                    t=mk(b,grow_xy=FILL_UNION_GROW_CM); BOP(t,WATER,INTERSECT); BOP(result,t,UNION)
+                    if LOCAL_INTERSECT_REBUILD:
+                        LS,LW=local_media(i-1,b)
+                        if tri_count(LW)>0:
+                            t=mk(b,grow_xy=FILL_UNION_GROW_CM); BOP(t,LW,INTERSECT); BOP(result,t,UNION)
+                    else:
+                        t=mk(b,grow_xy=FILL_UNION_GROW_CM); BOP(t,WATER,INTERSECT); BOP(result,t,UNION)
                 WOP(mk(b),SUBTRACT)
             # blockable: NO visible geometry and NO media change - its media_op row resolves straight
             # back to the base medium. It only ever collides. Collected separately so it can be baked
@@ -2192,12 +2339,18 @@ def run():
         if i%250==0: unreal.log("  ...%d/%d  result tris=%s"%(i,n,tri_count(result)))
     unreal.log("Done carving: result tris=%s  WATER tris=%s  boolean failures=%d"%(
         tri_count(result),tri_count(WATER),fails[0]))
+    if LOCAL_INTERSECT_REBUILD and _lm_stats[0]:
+        unreal.log("  local-media rebuild: %d intersect ops used fresh local meshes (%d brushes "
+                   "replayed, avg %.1f)"%(_lm_stats[0],_lm_stats[1],_lm_stats[1]/max(1,_lm_stats[0])))
+    # The analytic media model is the authority (cross-checked vs an independent voxel model and vs
+    # DromEd). Built once here; used by the phantom-solid cull in rebuild_unwelded and by the water
+    # surface clip, and audited by validate_volume.
+    _model=build_media_model(world, body)
     if VALIDATE_MEDIA:
         # SOLID only. The raw WATER volume here is an intermediate that clip_surface_to_medium later
         # rebuilds directly from medium_at, so the FINAL water matches the model by construction -
         # validating it against the same model is circular (and, on the pre-clip mesh, misleading).
         # `result` is the independent boolean output, so it is the one worth auditing.
-        _model=build_media_model(world, body)
         validate_volume(result,"SOLID",SOLID,_model)
     if first_err[0]: unreal.log_error("First boolean error: %s"%first_err[0])
 
@@ -2213,7 +2366,7 @@ def run():
         if FINAL_RETAG:
             retag_final(result, body) # Dark override: latest brush face wins per result triangle
             if REBUILD_UNWELDED:
-                nm=rebuild_unwelded(result, getattr(retag_final,"tri2face",{}))
+                nm=rebuild_unwelded(result, getattr(retag_final,"tri2face",{}), _model)
                 if nm is not None: result=nm
                 else: unreal.log_warning("  rebuild_unwelded unavailable - keeping welded mesh")
         if _PERFACE_UV[0]:

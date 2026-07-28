@@ -190,6 +190,15 @@ aligns only because the mapper set `tx_rot == H == 70`; a different `tx_rot` wou
 is correct ("textures rotate by their own rotation"). Solid caps already resolved to +tx_rot/su=+1.
 Cylinder & pyramid caps (cap flag) keep their own path. Builder-only change — no geo regen.
 
+FOLLOW-UP (same brush): rotation then aligned but the rug's **V offset** was off — its fringe on the
+wrong V end. Dark's cap baseaxis is **LEFT-handed** (`baseaxis[5]` U=(1,0,0) V=(0,1,0) normal=(0,0,-1):
+U×V=+Z=−normal). Our frame was forced right-handed, so our V pointed 180° opposite Dark's — invisible
+to the rotation (V on the right *line*) but it flips the V-offset direction (and mirrors a symmetric
+rug in V, which reads as the offset moving). Fix: negate V for world caps in `_face_uv_at` (and V+projn
+in `_face_uv_transform` to keep a valid RH quaternion). Verified `v = -dot(V,p)/tile + rawvoff/dv`
+equals Dark's `dot(V_dark,p)/scale + align_v` with `V_dark = -ourV`, `align_v = +voff*4/256 = voff/64`
+(`CB_MAX_ALIGN=256`, `csgbrush.h:57`). U offset was already right, which is why only V looked wrong.
+
 ### FIXED (2026-07): baking now gated on the real `tx_rot == 1` flag
 `mis_to_geo._make_faces` used to bake `uaxis`/`vaxis` for **any** rotated brush's horizontal
 cap. Baking `R @ base` only equals Dark's world-baseaxis result when `R` is a 90° multiple

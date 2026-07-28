@@ -1336,6 +1336,9 @@ def _face_uv_transform(f):
     u0,v0,projn=_uv_basis(n,f)
     c=math.cos(rot); s=math.sin(rot)
     U=[c*u0[i]+s*v0[i] for i in range(3)]; V=[-s*u0[i]+c*v0[i] for i in range(3)]
+    if _is_world_cap(f): V=[-x for x in V]; projn=[-x for x in projn]   # Dark's cap baseaxis is LEFT-handed:
+    # our RH V points 180 deg opposite Dark's, which flips the V offset (rug fringe on the wrong side).
+    # Negate V to Dark's direction; negate projn too so [U,V,projn] stays a valid RH rotation frame.
     t=unreal.Transform(); t.set_editor_property("rotation", _quat_from_axes([U,V,projn]))
     su=-1.0 if MIRROR_TEX_U else 1.0                 # negative U scale mirrors the texture horizontally
     if f.get("solid"): su=-su                         # solid (union) faces face the opposite way -> flip back
@@ -1475,6 +1478,7 @@ def _face_uv_at(f, p):
     u0,v0,projn=_uv_basis(n,f)
     c=math.cos(rot); sn=math.sin(rot)
     U=[c*u0[i]+sn*v0[i] for i in range(3)]; V=[-sn*u0[i]+c*v0[i] for i in range(3)]
+    if _is_world_cap(f): V=[-x for x in V]     # Dark cap baseaxis is LEFT-handed; match its V so the V offset lands right
     su=_su_for(f) if "_su_for" in globals() else (-1.0 if MIRROR_TEX_U else 1.0)
     if "_su_for" not in globals():
         if f.get("solid"): su=-su

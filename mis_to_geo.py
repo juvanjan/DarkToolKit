@@ -360,11 +360,18 @@ def faces_for(b, names):
                 slant=slant, pyrside=pyrside, dodside=dodside,
                 tex=resolve(slot), sc=resolve_scale(slot), rot=round(resolve_rot(slot),3),
                 uoff=resolve_off(fuof,slot), voff=resolve_off(fvof,slot))
-        # ROTATED brushes, WORLD-HORIZONTAL (cap) faces only: build picks the cap U/V by a fixed world axis,
-        # which ignores the brush rotation (a pitched wedge's triangle cap comes out mis-rotated). Vertical
-        # faces are fine on the world-based path (that's how Dark works), so we leave them alone. For the
-        # ambiguous cap we bake the texture axes from the LOCAL normal, transformed by R and the Y-reflection.
-        if (abs(b["H"])>0.5 or abs(b["P"])>0.5 or abs(b["B"])>0.5) and abs(nue[2])>0.99 and not cylside and not slant and not pyrside and not dodside:
+        # BRUSH-ALIGNED texture axes (rotate WITH the brush) are used by Dark ONLY for faces flagged
+        # TEXINFO_HACK_ALIGN - DromEd's "align texture to brush" (raw tx_rot == 1). For every other face
+        # Dark's compute_poly_texture_info (csgemit.c:492) uses the WORLD baseaxis (rotation-INDEPENDENT),
+        # rotated only by the face's tex rot. Verified against the source: for a non-hack cap the exact
+        # Dark axis matches the builder's default cap path in every case, while baking R@base is only
+        # right when R is a 90-deg multiple (it maps world axes to world axes). A 70-deg yaw (brush 1326
+        # floor) proved this: baking put the cap 20 deg off DromEd; id68's cap was a latent 90 deg off.
+        # So we bake ONLY for hack-align caps (which genuinely need it, and get NO rot); all other caps
+        # fall through to the world-baseaxis default path. TEXINFO_HACK_ALIGN==1 -> tiny fixang, so its
+        # resolve_rot is ~0 and the builder's rot term is a no-op, matching Dark's early return.
+        hack_align = 0<=slot<len(frot) and int(frot[slot])==1
+        if hack_align and abs(nue[2])>0.99 and not cylside and not slant and not pyrside and not dodside:
             if abs(nl[2])>0.99: lu=np.array([1.0,0.0,0.0]); lv=np.array([0.0,1.0 if nl[2]>0 else -1.0,0.0])
             else:
                 lu=np.cross([0.0,0.0,1.0],nl); lu=lu/(np.linalg.norm(lu) or 1.0)

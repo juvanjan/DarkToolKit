@@ -174,6 +174,36 @@ faces Dark would have put through Mode B, and misses faces Dark puts through Mod
 dominant axis with *no* brush-rotation term. That is very likely the real reason the id5/id6
 saga never converged.
 
+### FIXED (2026-07): world caps used +pi/su=-1 (wrong rotation SIGN and inverted V)
+Once baking was gated off, brush 1326's floor was still wrong two ways. The shared cap path used
+`rot = -tx_rot + π` and `su = -1`: the `+π` rotates U and V 180°, `su=-1` flips U back — but nothing
+flips V, so **V was inverted 180°** (invisible on a symmetric tile at rot 0; a rug's asymmetric fringe
+exposes it). More importantly the rotation **sign was backwards**: the floor was landing at UE 70°
+(diagonal to the 70°-yawed brush) when DromEd shows the rug **aligned to the brush edges** (UE 110°).
+Ground truth from the user (not my Dark-source derivation, which had the sign inverted): for a WORLD
+cap the texture rotates by its own `tx_rot` about world Z with **su=+1** and sign **+tx_rot on the
+floor, -tx_rot on the ceiling** — Dark's `best>=3` negation flipped once by the level's Y-reflection.
+`_is_world_cap(f)` (world-horizontal, non-cap-flag, non-uaxis, non-tilted) takes this path in
+`_face_rot` / `_face_uv_transform` / `_face_uv_at`. Verified: 1326 floor U now lands on the brush edge
+(UE 110°), V on the other edge (20°) = rug aligned like DromEd. Note this is NOT brush-alignment — it
+aligns only because the mapper set `tx_rot == H == 70`; a different `tx_rot` would sit diagonal, which
+is correct ("textures rotate by their own rotation"). Solid caps already resolved to +tx_rot/su=+1.
+Cylinder & pyramid caps (cap flag) keep their own path. Builder-only change — no geo regen.
+
+### FIXED (2026-07): baking now gated on the real `tx_rot == 1` flag
+`mis_to_geo._make_faces` used to bake `uaxis`/`vaxis` for **any** rotated brush's horizontal
+cap. Baking `R @ base` only equals Dark's world-baseaxis result when `R` is a 90° multiple
+(it permutes world axes); a 70° yaw does not. Brush 1326 (H=70) exposed it — its floor cap
+came out 20° off DromEd — and id68's cap was a latent **90° off**. Reproduced against the
+source: computing Dark's exact `compute_poly_texture_info` (baseaxis + `tx_rot` about that
+axis, sign-negated for `best>=3`) and transforming to UE, the builder's **default cap path
+matches Dark on all 2722 MISS1 horizontal caps (0 disagreements)**, while the baked path was
+wrong on every non-90° cap. So baking is now gated on `frot[slot] == 1` (TEXINFO_HACK_ALIGN)
+— brush-align faces keep it (they need R and get no `rot`; 497 such faces mission-wide), and
+all other caps fall through to the rotation-independent world-baseaxis path. `mis_to_geo` must
+be re-run to regenerate geo. (The larger Mode-A/Mode-B rewrite in §6 is still the endgame; this
+retires the incorrect trigger without it.)
+
 ---
 
 ## 4. 🔴 Texture scale is resolution-INDEPENDENT

@@ -1270,6 +1270,15 @@ def _uv_basis(n, f):
     return u0, v0, list(n)
 
 
+def _is_world_cap(f):
+    """A WORLD-HORIZONTAL flat face textured by Dark's world baseaxis (floor/ceiling of a box, wedge
+    leg, etc.) - NOT a cylinder/pyramid cap (cap flag, which carries its own 180), a hack-align cap
+    (uaxis), or a tilted face (cylside/slant/pyrside/dodside). For these Dark rotates baseaxis[best]
+    by the face tx_rot with NO brush term and NO extra 180; see _face_rot / the su=+1 override."""
+    n=f["n"]
+    return (abs(n[2])>0.99 and not f.get("cap") and not f.get("uaxis") and not f.get("cylside")
+            and not f.get("slant") and not f.get("pyrside") and not f.get("dodside"))
+
 def _face_rot(f, n):
     """Final texture rotation in radians. ONE definition for every UV path.
 
@@ -1281,6 +1290,16 @@ def _face_rot(f, n):
 
     The +pi base and the cap corrections below are UE-side and were calibrated at rot=0, so they are
     independent of the sign flip and stay as they are."""
+    # WORLD caps get Dark's world-baseaxis result with NO +pi and NO U-mirror (su=+1, see below): the
+    # texture rotates by its OWN tx_rot about the world Z, no brush term. The +pi base plus su=-1 that
+    # walls use flips U back but leaves V inverted 180 deg -> invisible on a symmetric tile at rot 0.
+    # SIGN: the Y-reflection (det -1) reverses the sense of a Z rotation, so the floor rotates by
+    # +tx_rot and the ceiling by -tx_rot (Dark's own best>=3 negation, flipped once by the reflection).
+    # Confirmed on brush 1326 (H=70): with +tx_rot the floor U lands on the brush edge (110 deg in UE),
+    # matching DromEd's rug; -tx_rot put it 40 deg off (diagonal). Solid caps already resolve to this.
+    if _is_world_cap(f):
+        s=1.0 if n[2]<0.0 else -1.0                       # floor (+Z-down normal): +tx_rot; ceiling: -tx_rot
+        return s*math.radians(float(f.get("rot",0.0) or 0.0))
     rot=-math.radians(float(f.get("rot",0.0) or 0.0))+math.pi
     if f.get("uaxis"): rot-=math.pi/2       # baked cap frame is 90 deg off (mirror flips sense)
     if f.get("capleg"): rot+=math.pi/2      # cap from the -Y leg, not the extrude axis
@@ -1321,6 +1340,7 @@ def _face_uv_transform(f):
     su=-1.0 if MIRROR_TEX_U else 1.0                 # negative U scale mirrors the texture horizontally
     if f.get("solid"): su=-su                         # solid (union) faces face the opposite way -> flip back
     if f.get("cylside"): su=-su                        # curved side wraps the opposite way vs the caps
+    if _is_world_cap(f): su=1.0                        # world caps: Dark's exact frame, no U-mirror (V stays upright)
     uu=(uoff+TEX_SHIFT_U)*su; vv=voff+TEX_SHIFT_V     # flip the U offset phase to match the flipped axis
     off=[(uu*tile_u)*U[i]+(vv*tile_v)*V[i] for i in range(3)]
     t.set_editor_property("translation", unreal.Vector(off[0],off[1],off[2]))
@@ -1459,6 +1479,7 @@ def _face_uv_at(f, p):
     if "_su_for" not in globals():
         if f.get("solid"): su=-su
         if f.get("cylside"): su=-su
+    if _is_world_cap(f): su=1.0                        # world caps: Dark's exact frame, no U-mirror (V upright)
     uu=(uoff+TEX_SHIFT_U)*su; vv=voff+TEX_SHIFT_V
     return ((U[0]*p[0]+U[1]*p[1]+U[2]*p[2])/(su*tile_u) - uu/su,
             (V[0]*p[0]+V[1]*p[1]+V[2]*p[2])/tile_v      - vv)

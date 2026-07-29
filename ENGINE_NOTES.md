@@ -1064,6 +1064,27 @@ boolean-fidelity artifact outside ops 5/7/8, but those three are the only ones t
 mesh to create geometry.
 
 
+## Retag: keep only the CLOSEST-plane coplanar candidates (not the loose 15cm set)
+
+Retag gathers coplanar candidates within a 15cm plane tolerance, then latest-wins. That tolerance lets
+a face from ANOTHER brush sitting a few cm off the real surface compete, and being later it wins. On
+MISS1 brush74 (op8) face11 the visible facet is VIC43 and it sits ON the surface (plane dist ~0.06cm),
+but id1178 (op0, t863) carries an `awin10` face 5.6cm off, and several `abaswal8` faces sit 10-15cm off
+- all inside 15cm, all later, so the facet showed awin10.
+
+Orientation does NOT disambiguate this: the boolean emits BOTH inward- and outward-facing triangles
+(validate_volume is deliberately normal-independent for exactly this reason), so a face's signed dot
+with the result normal is unreliable - an earlier attempt to prefer "forward-facing" faces fixed the
+outward triangles and kept awin10 on the inward ones.
+
+Fix (`RETAG_COPLANAR_CM`, 2.5cm): after gathering, compute each candidate's distance to the triangle's
+plane and keep only those within `min + 2.5cm`. The brush that MADE the surface is exactly on it, so it
+always survives; a few-cm-off intruder is dropped. Truly-coplanar bands (mold09/brick, ~0cm) and the
+id180 near-coplanar cylinder facet (1.4cm off its brick) stay together, so the latest-wins / subdivide
+logic is unaffected. Convention-independent (uses plane distance, not normal sign). Verified offline:
+every interior point of brush74 face11 flips from awin10/abaswal8 to VIC43. Builder-side, no geo regen.
+
+
 ## THE ROOT CAUSE: the empty-result trap
 
 `BooleanUnion: Boolean operation failed due to an empty result` has been in every build log. It is

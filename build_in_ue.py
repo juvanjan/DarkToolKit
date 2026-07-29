@@ -1661,6 +1661,10 @@ def _tri_normal_from(p3):
 
 RETAG_RESCUE_CM  = 60.0   # plane tolerance for the relaxed second pass (strict pass uses 15)
 RETAG_NORMAL_DOT = 0.99   # min |cos| between a result triangle's normal and a face's normal
+RETAG_COPLANAR_CM = 2.5   # after gathering coplanar candidates, keep only those within this of the
+                          #   CLOSEST plane. Drops a few-cm-off face from another brush that would else
+                          #   win by being later (brush74 VIC43 vs id1178 awin10 5.6cm off); keeps truly
+                          #   coplanar bands (~0cm) and the id180 near-coplanar cylinder facet (1.4cm).
 def retag_final(mesh, body):
     """Assign each result triangle the LATEST brush face that lies on its plane and covers it
        (Dark's 'later brush wins' override; also makes texturing robust to the boolean).
@@ -1736,6 +1740,18 @@ def retag_final(mesh, body):
             if abs(_dot(cl,fn)-f["d"])>15.0: continue          # not on the face's plane
             cov=[_pt_in_poly(q,f["poly"],fn) for q in qpts]
             if any(cov): cands.append((t,f,cov))
+        # CLOSEST PLANE: the 15cm match tolerance lets a face from ANOTHER brush that sits a few cm off
+        # the real surface compete, and latest-wins then hands the surface to it. brush74 (op8) face11's
+        # VIC43 sits ON the surface (~0.06cm) but lost to id1178 (op0) awin10 5.6cm off, and to abaswal8
+        # faces 10-15cm off, purely because they are later. Orientation can't disambiguate: the boolean
+        # emits inward- AND outward-facing triangles (see validate_volume), so a face's signed dot with
+        # the result normal is unreliable. Plane distance IS reliable: the brush that MADE the surface is
+        # exactly on it. Keep only the closest-plane candidates; truly-coplanar bands (mold09/brick ~0cm,
+        # and the id180 cylinder facet 1.4cm off its brick) stay together for the latest-wins / subdivide.
+        if cands:
+            pds=[abs(_dot(cl,c[1]["n"])-c[1]["d"]) for c in cands]
+            mpd=min(pds)
+            cands=[c for c,pd in zip(cands,pds) if pd<=mpd+RETAG_COPLANAR_CM]
         # The correct texture at any point is the LATEST face covering it (Dark's 'later brush wins').
         # Find that per vertex. If all verts agree on one face, it covers the whole (convex) triangle
         # -> assign it whole (fast path). If they DISAGREE - a later band overrides only part of the

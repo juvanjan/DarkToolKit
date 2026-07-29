@@ -87,6 +87,10 @@ TEXEL_REF_PX = 64.0       # fallback texture width if a texture's size is unknow
 FEET_CM = 30.48           # Dark world tile (feet) = pixels * 2^(scale-20); this converts feet -> cm
 TEX_SHIFT_U = 0.0         # U needs no shift
 TEX_SHIFT_V = 0.0         # V needs no shift
+FINE_MEDIA_GRID = 17      # media_present() fine-scan resolution: the confirm pass before an op is
+                          #   SKIPPED as "no source medium". The coarse 5x5x5 misses thin slivers (a
+                          #   window arch's flood water was ~0.4% of the brush -> skipped). 11+ detects
+                          #   it; 17 keeps margin. Only runs for would-be-skips, early-exits on first hit.
 MIRROR_TEX_U = True       # level is Y-reflected -> textures come out horizontally mirrored (a left arrow
                           #   reads as a right arrow). Flip the U axis of every face's UV to undo it.
 BUILD_TEXTURES = True     # assign real Dark textures (needs the *_geo.json with per-face "faces" data)
@@ -2180,19 +2184,25 @@ def media_present(sol, want, ws, prior, grid=5):
     we skip an op that would have changed almost nothing - far better than flooding the brush."""
     planes,bb=sol
     lo,hi=bb
-    pts=[]
-    for i in range(grid):
-        for j in range(grid):
-            for k in range(grid):
-                f=[(n+0.5)/grid for n in (i,j,k)]
-                P=[lo[d]+(hi[d]-lo[d])*f[d] for d in range(3)]
-                if _inside_solid(P,sol): pts.append(P)
-    for P in pts:
-        m = SOLID if (ws and _inside_solid(P,ws)) else AIR
-        for op2,s2 in prior:
-            if _inside_solid(P,s2): m=MEDIA_T[op2][m]
-        if m in want: return True
-    return False
+    def scan(g):
+        for i in range(g):
+            for j in range(g):
+                for k in range(g):
+                    f=[(n+0.5)/g for n in (i,j,k)]
+                    P=[lo[d]+(hi[d]-lo[d])*f[d] for d in range(3)]
+                    if not _inside_solid(P,sol): continue
+                    m = SOLID if (ws and _inside_solid(P,ws)) else AIR
+                    for op2,s2 in prior:
+                        if _inside_solid(P,s2): m=MEDIA_T[op2][m]
+                    if m in want: return True
+        return False
+    # TWO-TIER: the coarse grid is fast and answers the common "present" case immediately. But a THIN
+    # sliver of the wanted medium can fall entirely between coarse samples - a whole window arch was
+    # skipped this way (id1181 water->solid: its flood water is ~0.4% of the brush, invisible to 5x5x5,
+    # detectable at 11+). So before we conclude ABSENT and skip a real op, re-scan finely. The fine pass
+    # runs only for would-be-skips (a handful of brushes) and early-exits the instant it finds a hit.
+    if scan(grid): return True
+    return scan(FINE_MEDIA_GRID)
 
 _MEDNAME={SOLID:"SOLID", AIR:"AIR", WATER_M:"WATER"}
 def validate_volume(mesh, label, want, model, depth=15.0, limit=8):

@@ -767,9 +767,17 @@ Note which half of each op is conditional: op5 always does SOLID -= B (S->W remo
 regardless), and op8 always does WATER -= B; only the gain side is guarded.
 
 The guard samples a grid inside the convex brush. A medium present only as a sliver thinner than the
-sample spacing could be missed, in which case we skip an op that would have changed almost nothing --
-far better than flooding the brush. The boolean still does the exact geometry whenever the answer is
-yes; sampling only ever decides go/no-go.
+sample spacing could be missed. That "almost nothing" assumption was WRONG for window arches: the
+arch solid is built by a flood (op3, air->water) followed by a water->solid (op8) that converts only
+that thin curved water sliver. On MISS1 id1181 (converts the id1146/id1151 flood water into both
+window arches) the water is ~0.4% of the brush volume and fell entirely between the 5x5x5 samples, so
+the guard reported "no WATER" and skipped it -- deleting BOTH arches. Fix: `media_present` is now
+TWO-TIER (`FINE_MEDIA_GRID`, default 17). The coarse grid still answers the common present case fast;
+only when it would SKIP does a fine pass re-scan (early-exits on first hit, so it costs nothing on the
+common path). 11+ detects id1181's arch water; 17 keeps margin. This keeps the empty-result trap
+protection intact -- when the fine guard confirms water is genuinely inside the brush, `brush & water`
+is non-empty, so there is no trap to flood; when there is truly no source medium, both tiers agree and
+the op is correctly skipped. The boolean still does the exact geometry whenever the answer is yes.
 
 `VALIDATE_MEDIA` audits both finished volumes against the model: sample just inside each boundary
 triangle and assert it encloses the expected medium. Any disagreement means the BOOLEAN diverged from

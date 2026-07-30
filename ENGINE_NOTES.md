@@ -1084,6 +1084,22 @@ id180 near-coplanar cylinder facet (1.4cm off its brick) stay together, so the l
 logic is unaffected. Convention-independent (uses plane distance, not normal sign). Verified offline:
 every interior point of brush74 face11 flips from awin10/abaswal8 to VIC43. Builder-side, no geo regen.
 
+## Retag: degenerate-normal triangles matched by position (window U-offset)
+
+The boolean emits some result triangles with a (0,0,0) face normal - window glass (awin10) especially.
+Every retag test starts with `abs(dot(result_n, face_n)) >= 0.99`, which a zero normal can never pass,
+so these tris get NO candidate, land in `unmatched`, and fall to rebuild's crude fallback UV
+(`world/121.92`, no offset, wrong scale). A whole window then reads as "U offset not applied" even
+though the frame around it matched fine. On MISS1 id1178's window 147 tris matched (offset correct) but
+21 were bare, and a dozen other awin10 windows (id970/971/1095/1179/850/851/857/860...) were fully
+unmatched. Rescue diag confirmed it: `orientation<0.99=167`, `best |cos| median 0.000`.
+
+Fix: a final rescue pass matches a still-unmatched tri whose normal is ~zero by PLANE + POLYGON
+COVERAGE only (closest plane / latest brush wins) - no orientation. Position is unambiguous here: the
+centroid lies on the face plane and inside its polygon, so it gets that face's real UV (offset+scale).
+Only runs for degenerate-normal unmatched tris (~a few dozen), so it can't disturb normal matches.
+Builder-side, no geo regen.
+
 
 ## THE ROOT CAUSE: the empty-result trap
 

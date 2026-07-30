@@ -1813,6 +1813,19 @@ def retag_final(mesh, body):
                 if pd>RETAG_RESCUE_CM: continue
                 if pd<bestpd-1e-6 or (abs(pd-bestpd)<=1e-6 and t>bestt):
                     bestt=t; bestpd=pd; best=f
+            # DEGENERATE-NORMAL tris: the boolean emits some result triangles with a (0,0,0) face normal
+            # (window glass especially). Orientation is unusable, so they fail the test above and drop to
+            # the no-offset fallback UV - a whole window then looks like its U offset was never applied.
+            # Match them by PLANE + POLYGON COVERAGE only (closest plane / latest wins), which gives them
+            # the real face's UV (offset and scale included). Position alone is safe here: the centroid
+            # lies ON the face plane AND inside its polygon.
+            if best is None and (nrl[0]*nrl[0]+nrl[1]*nrl[1]+nrl[2]*nrl[2])<0.25:
+                for (t,f) in cells.get(_cell(cl),[])+big:
+                    pd=abs(_dot(cl,f["n"])-f["d"])
+                    if pd>RETAG_RESCUE_CM: continue
+                    if not _pt_in_poly(cl,f["poly"],f["n"]): continue
+                    if pd<bestpd-1e-6 or (abs(pd-bestpd)<=1e-6 and t>bestt):
+                        bestt=t; bestpd=pd; best=f
             if best is not None:
                 _set_matid_tri(mesh,tid,material_id(best["tex"]))
                 groups.setdefault(id(best),(best,[]))[1].append(tid); rescued+=1
@@ -1958,15 +1971,25 @@ def set_collision(sm):
     except Exception as e:
         unreal.log_warning("  set_collision failed: %s"%e)
 
+def _pin_origin(a):
+    # The mesh vertices are ABSOLUTE Dark world coords in the mesh's local space, so the actor MUST sit
+    # at the origin or the whole level is offset by the actor transform. spawn_actor_from_class does not
+    # reliably honour the location we pass (a build placed it at Z=-1048730 -> the mesh was ~10km down
+    # and "nothing displayed"). Pin it explicitly, every time.
+    try: a.set_actor_transform(unreal.Transform(unreal.Vector(0,0,0),unreal.Rotator(0,0,0),unreal.Vector(1,1,1)),False,True)
+    except Exception:
+        try: a.set_actor_location(unreal.Vector(0,0,0),False,True)
+        except Exception as e: unreal.log_warning("  spawn: could not pin actor to origin (%s)"%e)
+
 def spawn(sm, label):
     eas=unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
     try:                                                # reuse an actor with this label (no duplicates)
         for a in eas.get_all_level_actors():
             if isinstance(a,unreal.StaticMeshActor) and a.get_actor_label()==label:
-                a.static_mesh_component.set_static_mesh(sm); return a
+                a.static_mesh_component.set_static_mesh(sm); _pin_origin(a); return a
     except Exception: pass
     a=eas.spawn_actor_from_class(unreal.StaticMeshActor,unreal.Vector(0,0,0))
-    a.static_mesh_component.set_static_mesh(sm); a.set_actor_label(label); return a
+    a.static_mesh_component.set_static_mesh(sm); a.set_actor_label(label); _pin_origin(a); return a
 
 # ---------------------------------------------------------------- exact medium lookup (Dark's rule)
 # Dark renders a water surface ONLY where water meets AIR. get_texture_for_medium_transition

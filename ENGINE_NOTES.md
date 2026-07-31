@@ -164,6 +164,16 @@ face-perpendicular basis for box walls. For axis-aligned walls perpendicular == 
 it coincides — but **any tilted flat face that isn't a wedge slant is projected wrongly**.
 Dark uses dominant-axis for *every* Mode-B face.
 
+**FIXED (2026-07): box walls now use the dominant-axis (baseaxis) basis too.** The face-perpendicular
+`cross(Z,n)` box-wall branch was replaced with the same `-F * U_dark` baseaxis path slant/pyr/dod use.
+Proven a no-op on axis-aligned walls (identical basis on all 3406 axis-aligned box walls in MISS1, so
+no regression) and it corrects all 1497 DIAGONAL walls. Symptom that forced it: the `awin10` window (a
+whole Palladian design, not a tiling pattern) on the diagonal wall id1178 face2 (n=0.31,-0.95) had its
+tiling PHASE off, so only the glass centre landed in the opening instead of the full frame. `cross(Z,n)`
+projected from the in-plane perpendicular; Dark projects from the dominant world axis, giving a different
+phase (and the 1/cos stretch). The `uoff`/scale/material were all already correct — this was the base
+projection axis. `_face_rot` (+pi) and `su` are unchanged, so axis-aligned output is byte-identical.
+
 And the whole `uaxis` / `capleg` / `capleg_rot` stack is a hand-rolled reconstruction of
 **Mode A**, triggered by a *geometric heuristic* (`rotated brush && |n_z|>0.99`) instead of
 by the actual flag (`tx_rot == 1`). That is why it needs per-case ±90° patches: it fires on

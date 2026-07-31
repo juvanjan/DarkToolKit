@@ -1270,8 +1270,15 @@ def _uv_basis(n, f):
         if   ax==0: return [0.0,s,0.0], [0.0,0.0,1.0], [s,0.0,0.0]
         elif ax==1: return [-s,0.0,0.0], [0.0,0.0,1.0], [0.0,s,0.0]
         else:       return [1.0,0.0,0.0], [0.0,s,0.0], [0.0,0.0,s]
-    u0=_norm(_cross([0.0,0.0,1.0], n)); v0=_norm(_cross(n,u0))       # box wall perpendicular
-    return u0, v0, list(n)
+    # Flat wall: Dark projects from the WORLD baseaxis (its DOMINANT axis), NOT the face-perpendicular.
+    # For an axis-aligned wall the two coincide (verified: identical basis on all 3406 axis-aligned box
+    # walls in MISS1), so this is a no-op there. For a DIAGONAL wall they differ - cross(Z,n) is the
+    # in-plane perpendicular, which put a DESIGNED texture (the awin10 window) out of phase so only its
+    # glass centre landed in the opening. Use the same dominant-axis basis slant/pyr/dod already use.
+    i=_DARK_BASEAXIS[_dark_axis_index(n)]
+    u0=[-i[1][0], i[1][1], -i[1][2]]                                 # -F * U_dark   (F = [1,-1,1])
+    v0=[-i[2][0], i[2][1], -i[2][2]]                                 # -F * V_dark
+    return u0, v0, _norm(_cross(u0,v0))
 
 
 def _is_world_cap(f):
